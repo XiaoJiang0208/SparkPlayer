@@ -13,6 +13,10 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets LinguistTools)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets LinguistTools)
 find_package(Dtk REQUIRED COMPONENTS Widget)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(ffmpeg REQUIRED IMPORTED_TARGET libavcodec libavformat libavutil)
+
+
 set(TS_FILES SparkPlayer_zh_CN.ts)
 
 set(PROJECT_SOURCES
@@ -44,7 +48,14 @@ else()
     else()
         add_executable(SparkPlayer
             ${PROJECT_SOURCES}
+            include.h
             widgets/TimeLine.h widgets/TimeLine.cpp
+            widgets/MainPage.h widgets/MainPage.cpp
+            widgets/FlowLayout.h widgets/FlowLayout.cpp
+            widgets/ImageBox.h widgets/ImageBox.cpp
+            utils/ImageTools.h utils/ImageTools.cpp
+            utils/Path.h utils/Path.cpp
+            utils/Codec.h utils/Codec.cpp
         )
     endif()
 
@@ -53,6 +64,7 @@ endif()
 
 target_link_libraries(SparkPlayer PRIVATE Qt${QT_VERSION_MAJOR}::Widgets
     Dtk::Widget
+    PkgConfig::ffmpeg
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
@@ -74,6 +86,12 @@ install(TARGETS SparkPlayer
     BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# 新增：构建后复制images文件夹到build目录（可执行文件所在目录）
+add_custom_command(TARGET SparkPlayer POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/images $<TARGET_FILE_DIR:SparkPlayer>/images
 )
 
 if(QT_VERSION_MAJOR EQUAL 6)

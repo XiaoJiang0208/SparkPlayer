@@ -1,14 +1,7 @@
 #ifndef IMAGEBOX_H
 #define IMAGEBOX_H
 
-#include <DWidget>
-#include <DLabel>
-#include <QString>
-#include <QPainterPath>
-#include <QPainter>
-#include <QPixmap>
-#include <QImage>
-#include <QImageReader>
+#include "../include.h"
 
 DWIDGET_USE_NAMESPACE
 

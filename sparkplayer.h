@@ -1,20 +1,10 @@
 #ifndef SPARKPLAYER_H
 #define SPARKPLAYER_H
 
-#include <DMainWindow>
-#include <DTitlebar>
-#include <DLabel>
-#include <DFontSizeManager>
-#include <DWidget>
-#include <DPushButton>
-#include <DButtonBox>
-#include <DScrollArea>
-#include <DSlider>
-#include <DArrowButton>
-#include <DStyle>
-#include <QLayout>
-#include <QResizeEvent>
+#include "include.h"
+#include "utils/Codec.h"
 #include "widgets/TimeLine.h"
+#include "widgets/MainPage.h"
 
 DWIDGET_USE_NAMESPACE
 
@@ -32,11 +22,22 @@ protected:
 private:
     QLabel *title;
 
-    //QWidget *parent
+    
+    MainPage *main_page; // 主页面
+    QList<PageData> page_data; // 页面数据
 
+    void addMediaPage(PageData data); // 添加媒体页面
+
+    void setMainPage(const PageData &data); // 设置主页面
+
+
+    //UI
     DWidget *main_box; // 右侧主窗口
+    QVBoxLayout *main_box_layout; // 右侧主窗口布局器
     DScrollArea *media_list; // 左侧滚动列表
     DWidget *media_list_context; // 左侧媒体列表容器
+    QVBoxLayout *media_list_context_layout; // 媒体列s表纵向布局器
+    QButtonGroup *media_list_buttons; // 媒体列表按钮组
     DWidget *controlers; // 下半部分控制器容器
     DTitlebar *title_bar; // 标题栏
     TimeLine *time_line;  // 时间线
@@ -44,7 +45,7 @@ private:
     DPushButton *previous_play; // 上一个
     DPushButton *next_play; // 下一个
 
-    QList<DWidget*> media_list_items; // 媒体列表项
+
 
 public slots:
     void slotThemeTypeChanged();

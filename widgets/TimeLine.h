@@ -1,11 +1,7 @@
 #ifndef TIMELINE_H
 #define TIMELINE_H
 
-#include <DSlider>
-#include <DWidget>
-#include <DLabel>
-#include <QHBoxLayout>
-#include <QList>
+#include "../include.h"
 
 DWIDGET_USE_NAMESPACE
 
@@ -14,7 +10,7 @@ class TimeLine : public DWidget
     Q_OBJECT
 public:
     explicit TimeLine(Qt::Orientation orientation = Qt::Horizontal, QWidget *parent = nullptr);
-    DSlider *main_slider;
+    QSlider *main_slider;
     
 private:
     DLabel * left_time;

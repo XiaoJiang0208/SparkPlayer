@@ -1,9 +1,13 @@
 #include "sparkplayer.h"
-#include "./ui_sparkplayer.h"
+//#include "./ui_sparkplayer.h"
 
 Sparkplayer::Sparkplayer()
     : DMainWindow()
 {
+    main_page = nullptr;
+    page_data.append(PageData{"主页","shit",QUrl(""),"",Box});
+    page_data.append(PageData{"音乐","Content2",QUrl(""),"",Box});
+    page_data.append(PageData{"视屏","Content3",QUrl(""),"",Box});
     setupUI();
     connect(DGuiApplicationHelper::instance(), &DGuiApplicationHelper::themeTypeChanged, this, &Sparkplayer::slotThemeTypeChanged);
     slotThemeTypeChanged();
@@ -44,7 +48,7 @@ void Sparkplayer::setupUI()
     QVBoxLayout *left_layout = new QVBoxLayout(); // 左侧布局器
     up_layout->addItem(left_layout);
     //标题
-    title = new QLabel("SparkPlayer",this);
+    title = new QLabel(tr("SparkPlayer"),this);
     title->setContentsMargins(50,0,0,0);
     title->setFixedHeight(50);
     left_layout->addWidget(title);
@@ -53,27 +57,42 @@ void Sparkplayer::setupUI()
     left_layout->addWidget(media_list);
     media_list->setFixedWidth(200);
     media_list_context = new DWidget(); // 初始化左侧媒体列表容器
-    QVBoxLayout *media_list_layout = new QVBoxLayout(media_list_context); // 媒体列表纵向布局器
-    media_list_layout->setContentsMargins(10,10,0,0);
-    for (int i = 0; i < 10; i++)
+    media_list->setWidgetResizable(true);
+    media_list_context->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding); // 横向铺满
+    media_list_context_layout = new QVBoxLayout(media_list_context); // 媒体列表纵向布局器
+    media_list_context_layout->setContentsMargins(10,10,0,0);
+    media_list_context_layout->setAlignment(Qt::AlignTop); // 从上到下排列
+    media_list_buttons = new QButtonGroup(media_list_context); // 媒体列表按钮组
+    DPushButton *b = new DPushButton(QString("addone"),media_list_context);
+    b->setFixedHeight(50);
+    b->setFixedWidth(180);
+    b->setCheckable(true);
+    b->setIcon(b->style()->standardIcon(DStyle::SP_ComputerIcon));
+    connect(b,&DPushButton::clicked,[=](){
+        // PageData data = PageData{"新页面","Content",QUrl(""),"",Box};
+        // addMediaPage(data);
+        Codec::getInstance()->openFile("/home/xiaojiang/Desktop/homework.mp4");
+    });
+    
+    media_list_buttons->addButton(b);
+    media_list_context_layout->addWidget(b);
+    for (PageData data : page_data)
     {
-        DPushButton *b = new DPushButton(QString("button%1").arg(i),media_list_context);
-        b->setFixedHeight(50);
-        b->setFixedWidth(180);
-        b->setIcon(b->style()->standardIcon(DStyle::SP_ComputerIcon));
-        media_list_items.append(b);
-        media_list_layout->addWidget(b);
+        addMediaPage(data);
     }
+
     //QSpacerItem *s =new  QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding); // 弹簧
-    media_list_layout->addItem(new QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding)); // 弹簧
     media_list->setWidget(media_list_context);
     
-
+    //右侧区域
     main_box = new DWidget(centralWidget()); // 右侧主窗口
-    up_layout->addWidget(main_box); 
+    main_box_layout = new QVBoxLayout(main_box); // 主窗口纵向布局器
+    main_box_layout->setContentsMargins(0,0,0,0);
+    main_box_layout->setSpacing(0);
+    main_box_layout->addItem(new QSpacerItem(20, 50, QSizePolicy::Minimum, QSizePolicy::Fixed)); // 弹簧
+    up_layout->addWidget(main_box);
     centralwidget_layout->addLayout(up_layout); // 添加到上半部分的布局器中
-    DPushButton *t = new DPushButton("test button",main_box);
-
+    //setMainPage(PageData()); // 设置主页面
 
     // 下半控制部分
     controlers = new DWidget(centralWidget()); // 控制部分容器
@@ -103,14 +122,14 @@ void Sparkplayer::setupUI()
     previous_play->setFixedSize(40,40);
     previous_play->setStyleSheet(".QPushButton{background-color:rgba(196, 189, 189, 0); border-radius: 20px;}\
                                 .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 20px;}\
-                                .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.53); border-radius: 20px;}");
+                                .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 20px;}");
     next_play = new DPushButton(controlers); // 初始化下一个按钮
     next_play->setIcon(next_play->style()->standardIcon(DStyle::SP_MediaSeekForward));
     next_play->setIconSize(QSize(40,40));
     next_play->setFixedSize(40,40);
     next_play->setStyleSheet(".QPushButton{background-color:rgba(196, 189, 189, 0); border-radius: 20px;}\
                                 .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 20px;}\
-                                .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.5); border-radius: 20px;}");
+                                .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 20px;}");
     
     controler_box_layout->addItem(new QSpacerItem(20, 40, QSizePolicy::Expanding, QSizePolicy::Minimum)); // 弹簧
     controler_box_layout->addWidget(previous_play);
@@ -126,9 +145,55 @@ void Sparkplayer::resizeEvent(QResizeEvent *event)
 {
     DMainWindow::resizeEvent(event);
     title_bar->setFixedWidth(event->size().width());
+
+}
+
+void Sparkplayer::addMediaPage(PageData data)
+{
+    DPushButton *b = new DPushButton(QString("%1").arg(data.title),media_list_context);
+    b->setFixedHeight(50);
+    b->setFixedWidth(180);
+    b->setCheckable(true);
+    b->setIcon(b->style()->standardIcon(DStyle::SP_ComputerIcon));
+    connect(b,&DPushButton::clicked,[=](){
+        qDebug() << "switch to " << data.title;
+        setMainPage(data);
+    });
+    b->setStyleSheet(".QPushButton{background-color:rgba(196, 189, 189, 0); border-radius: 10px;}\
+                        .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}\
+                        .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}\
+                        .QPushButton:checked{background-color:rgb(100, 180, 255); border-radius: 10px;}");
+    media_list_buttons->addButton(b);
+    media_list_context_layout->addWidget(b);
+    qDebug() << "add page " << data.title;
+}
+
+void Sparkplayer::setMainPage(const PageData &data)
+{
+    if (main_page)
+    {
+        layout()->removeWidget(main_page);
+        main_page->deleteLater();
+        main_page = nullptr;
+    }
+    main_page = new MainPage(main_box,data);
+    if (main_page)
+    {
+        main_box_layout->addWidget(main_page);
+        
+    }
+    
 }
 
 void Sparkplayer::slotThemeTypeChanged(){
+
+    for(auto item : media_list_buttons->buttons())
+    {
+        item->setStyleSheet(".QPushButton{background-color:rgba(196, 189, 189, 0); border-radius: 10px;}\
+                            .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}\
+                            .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}\
+                            .QPushButton:checked{background-color:rgb(100, 180, 255); border-radius: 10px;}");
+    }
     if (DGuiApplicationHelper::instance()->themeType() == DGuiApplicationHelper::LightType)
     {
         title->setStyleSheet(".QLabel{background-color: #f0f3f6;}");
@@ -136,12 +201,6 @@ void Sparkplayer::slotThemeTypeChanged(){
         media_list->setStyleSheet(".QScrollArea{background-color: #f0f3f6;border-style: none;}");
         main_box->setStyleSheet(".QWidget{background-color: #f7f9fc;}");
         controlers->setStyleSheet(".QWidget{background-color: #fafafa;}");
-        for(auto item : media_list_items)
-        {
-            item->setStyleSheet(".QPushButton{background-color:rgba(240, 243, 246, 0); border-radius: 10px;}\
-                  .QPushButton:hover{background-color: #e1e4e8; border-radius: 10px;}\
-                  .QPushButton:pressed{background-color: #d2d5d9; border-radius: 10px;}");
-        }
 
 
     } else {
@@ -150,12 +209,7 @@ void Sparkplayer::slotThemeTypeChanged(){
         media_list->setStyleSheet(".QScrollArea{background-color: #1a1a21;border-style: none;}");
         main_box->setStyleSheet(".QWidget{background-color: #13131a;}");
         controlers->setStyleSheet(".QWidget{background-color: #2d2d38;}");
-        for (auto item : media_list_items)
-        {
-            item->setStyleSheet(".QPushButton{background-color:rgba(26, 26, 33, 0); border-radius: 10px;}\
-                  .QPushButton:hover{background-color: #1a1a21; border-radius: 10px;}\
-                  .QPushButton:pressed{background-color: #0d0d0f; border-radius: 10px;}");
-        }
+
     }
     
 }
