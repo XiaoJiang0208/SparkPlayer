@@ -1,0 +1,50 @@
+#ifndef SPARKMEDIACONTROLER_H
+#define SPARKMEDIACONTROLER_H
+
+#include <thread>
+#include <qt5/QtCore/QObject>
+#include <qt5/QtGui/QImage>
+#include <qt5/QtCore/QSize>
+#include "utils/Codec.h"
+
+QT_USE_NAMESPACE
+
+class SparkMediaControler : public QObject
+{
+    Q_OBJECT
+private:
+    Codec m_codec;
+
+    QImage *image_frame; // 图像帧
+    QSize size; // 大小
+    QImage::Format format; // 色彩格式
+    std::thread *codec_thead; // 解码线程
+    bool isPlay;
+    bool haveFile;
+
+public:
+
+    void reSize(QSize size);
+    void reSize(int widht, int height);
+
+    void play();
+    void pause();
+
+
+    void openMedia(QString path);
+    void closeMedia();
+    QImage *getImg();
+    void codec();
+
+    SparkMediaControler(/* args */);
+    ~SparkMediaControler();
+
+
+signals:
+    void onImageDone();
+    void onStatusChange();
+};
+
+
+
+#endif // SPARKMEDIACONTROLER_H
