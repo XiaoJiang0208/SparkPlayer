@@ -9,12 +9,12 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets LinguistTools)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets LinguistTools)
-find_package(Dtk REQUIRED COMPONENTS Widget)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Core LinguistTools)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Core LinguistTools)
+find_package(Dtk REQUIRED COMPONENTS Widget Core)
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(ffmpeg REQUIRED IMPORTED_TARGET libavcodec libavformat libavutil)
+pkg_check_modules(ffmpeg REQUIRED IMPORTED_TARGET libavcodec libavformat libavutil libswscale)
 
 
 set(TS_FILES SparkPlayer_zh_CN.ts)
@@ -24,6 +24,9 @@ set(PROJECT_SOURCES
         sparkplayer.cpp
         sparkplayer.h
         sparkplayer.ui
+
+        SparkMediaControler.h
+        SparkMediaControler.cpp
         ${TS_FILES}
 )
 
@@ -56,14 +59,16 @@ else()
             utils/ImageTools.h utils/ImageTools.cpp
             utils/Path.h utils/Path.cpp
             utils/Codec.h utils/Codec.cpp
+            
         )
     endif()
 
     qt5_create_translation(QM_FILES ${CMAKE_SOURCE_DIR} ${TS_FILES})
 endif()
 
-target_link_libraries(SparkPlayer PRIVATE Qt${QT_VERSION_MAJOR}::Widgets
+target_link_libraries(SparkPlayer PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Core
     Dtk::Widget
+    Dtk::Core
     PkgConfig::ffmpeg
 )
 

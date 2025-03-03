@@ -5,16 +5,19 @@ Sparkplayer::Sparkplayer()
     : DMainWindow()
 {
     main_page = nullptr;
+    ct = new SparkMediaControler();
     page_data.append(PageData{"主页","shit",QUrl(""),"",Box});
     page_data.append(PageData{"音乐","Content2",QUrl(""),"",Box});
     page_data.append(PageData{"视屏","Content3",QUrl(""),"",Box});
     setupUI();
     connect(DGuiApplicationHelper::instance(), &DGuiApplicationHelper::themeTypeChanged, this, &Sparkplayer::slotThemeTypeChanged);
+    connect(ct,&SparkMediaControler::onImageDone,this,&Sparkplayer::showimg);
     slotThemeTypeChanged();
 }
 
 Sparkplayer::~Sparkplayer()
 {
+    delete ct;
 }
 
 void Sparkplayer::setupUI()
@@ -68,10 +71,11 @@ void Sparkplayer::setupUI()
     b->setFixedWidth(180);
     b->setCheckable(true);
     b->setIcon(b->style()->standardIcon(DStyle::SP_ComputerIcon));
+    ct->openMedia("/home/xiaojiang/Desktop/hh.mp4");
     connect(b,&DPushButton::clicked,[=](){
         // PageData data = PageData{"新页面","Content",QUrl(""),"",Box};
         // addMediaPage(data);
-        Codec::getInstance()->openFile("/home/xiaojiang/Desktop/homework.mp4");
+        ct->play();
     });
     
     media_list_buttons->addButton(b);
@@ -137,8 +141,10 @@ void Sparkplayer::setupUI()
     controler_box_layout->addWidget(next_play);
     controler_box_layout->addItem(new QSpacerItem(20, 40, QSizePolicy::Expanding, QSizePolicy::Minimum)); // 弹簧
 
+    test = new DLabel(this);
+    test->move(100,0);
+    test->setFixedSize(1920,1080);
     title_bar->raise(); // 置顶 titlebar
-
 }
 
 void Sparkplayer::resizeEvent(QResizeEvent *event)
@@ -183,6 +189,11 @@ void Sparkplayer::setMainPage(const PageData &data)
         
     }
     
+}
+
+void Sparkplayer::showimg()
+{
+    test->setPixmap(QPixmap::fromImage(*(ct->getImg())));
 }
 
 void Sparkplayer::slotThemeTypeChanged(){

@@ -11,12 +11,7 @@ Codec::Codec(/* args */)
 
 Codec::~Codec()
 {
-}
-
-Codec *Codec::getInstance()
-{
-    static Codec codec;
-    return &codec;
+    closeFile();
 }
 
 int32_t Codec::openFile(const char *path){
@@ -177,4 +172,145 @@ void Codec::closeFile(){
         m_pAudCodecCtx = nullptr;
     }
     
+}
+
+int32_t Codec::readFrame(){
+    int res = 0;
+
+
+    AVPacket *pPacket = av_packet_alloc();
+
+    // 读取数据包
+    res = av_read_frame(m_pAvFormatCtx, pPacket);
+    if (res == AVERROR_EOF)
+    {
+        qWarning() << "读取到文件结尾";
+        return -1;
+    } else if (res < 0)
+    {
+        qWarning() << "读取数据包失败";
+        return res;
+    }
+    if (pPacket->stream_index == m_vidStreamIndex)
+    {
+        AVFrame *pVideoFrame = nullptr;
+        res = decodePacketToFrame(m_pVidCodecCtx, pPacket, &pVideoFrame);
+        if (res == 0 && pVideoFrame != nullptr)
+        {
+            m_vidBuffer.push(pVideoFrame);
+            return 0;
+        }
+    } else if (pPacket->stream_index == m_audStreamIndex)
+    {
+        AVFrame *pAudioFrame = nullptr;
+        res = decodePacketToFrame(m_pAudCodecCtx, pPacket, &pAudioFrame);
+        if (res == 0 && pAudioFrame != nullptr)
+        {
+            m_aioBuffer.push(pAudioFrame);
+            return 0;
+        }
+        
+    }
+    
+    return res;
+}
+
+int32_t Codec::decodePacketToFrame(AVCodecContext *pCodecCtx, const AVPacket *pPacket, AVFrame **ppFrame)
+{
+    AVFrame* pOutFrame = av_frame_alloc();
+    int res = 0;
+
+    res = avcodec_send_packet(pCodecCtx, pPacket);
+    if (res == AVERROR(EAGAIN))
+    {
+        qDebug() << "缓冲区已满";
+    }
+    else if (res == AVERROR_EOF) // 数据包送入结束不再送入,但是可以继续可以从内部缓冲区读取解码后的音视频帧
+    {
+        qDebug() << "数据包送入结束不再送入,但是可以继续可以从内部缓冲区读取解码后的音视频帧";
+    }
+    else if (res < 0)  // 送入输入数据包失败
+    {
+        qDebug() << "送入数据包失败" << res;
+        return res;
+    }
+
+    res = avcodec_receive_frame(pCodecCtx,pOutFrame);
+    if (res == AVERROR(EAGAIN))
+    {
+        qDebug() << "需要更多数据包";
+        av_frame_free(&pOutFrame);
+        *ppFrame = nullptr;
+        return 0;
+    } else if (res == AVERROR_EOF)
+    {
+        qDebug() << "解包完毕后续不会再有包了";
+        av_frame_free(&pOutFrame);
+        return AVERROR_EOF;
+    }   else if (res < 0)
+    {
+        qDebug() << "解包失败" << res;
+        av_frame_free(&pOutFrame);
+        *ppFrame = nullptr;
+        return res;
+    }
+    
+    *ppFrame = pOutFrame;
+
+    return 0;
+}
+
+int32_t Codec::videoConvert(const AVFrame *pInFrame, /*AVPixelFormat eOutFormat, */int32_t out_width, int32_t out_height, uint8_t* data[1],int linesize[1])
+{
+    qDebug() << "pInFrame -> width:" << pInFrame->width
+         << "height:" << pInFrame->height
+         << "format:" << pInFrame->format;
+    if (pInFrame == nullptr) {
+        qWarning() << "pInFrame is null";
+        return -1;
+    }
+
+    // 确保输出缓冲区已分配并足够大，这里采用 RGB32，每个像素4字节
+    // 如果输出内存未分配，则需先分配内存
+    // 示例：假如你未在调用前准备内存，则可在此分配临时内存
+    int requiredSize = out_width * out_height * 4;
+    if (data[0] == nullptr) {
+        data[0] = (uint8_t*)av_malloc(requiredSize);
+        if (data[0] == nullptr) {
+            qWarning() << "无法分配内存";
+            return -1;
+        }
+        linesize[0] = out_width * 4;
+    }
+
+    SwsContext *pSwsCtx = nullptr;
+
+    pSwsCtx = sws_getContext(pInFrame->width,pInFrame->height,(AVPixelFormat)pInFrame->format, out_width, out_height, AV_PIX_FMT_RGB32, SWS_BICUBIC,nullptr,nullptr,nullptr);
+    if (pSwsCtx == nullptr)
+    {
+        qWarning() << "创建格式转换器失败";
+        return -1;
+    }
+    
+    sws_scale(pSwsCtx, pInFrame->data, pInFrame->linesize, 0, out_height, data, linesize);
+
+    sws_freeContext(pSwsCtx);
+
+    return 0;
+}
+
+AVFrame *Codec::getVidFrame()
+{
+    return m_vidBuffer.front();
+}
+
+void Codec::popVidFrame()
+{
+    av_frame_free(&m_vidBuffer.front());
+    m_vidBuffer.pop();
+}
+
+int32_t Codec::getVidBufferCount()
+{
+    return m_vidBuffer.size();
 }
