@@ -20,11 +20,13 @@ void SparkMediaControler::play()
         qWarning() << "没有媒体文件";
         return;
     }
+    m_codec.startDecoding();
     isPlay = true;
     emit onStatusChange();
 }
 void SparkMediaControler::pause()
 {
+    m_codec.stopDecoding();
     isPlay = false;
     emit onStatusChange();
 }
@@ -59,20 +61,23 @@ void SparkMediaControler::codec(){
         }
         if (isPlay)
         {
-            int res = m_codec.readFrame();
-            if (res == -1)
+            if (m_codec.isEnd())
             {
                 isPlay = false;
             }
             if(m_codec.getVidBufferCount()>0){
                 uint8_t* data[1] = { reinterpret_cast<uint8_t*>(image_frame->bits()) };
                 int linesize[1] = { static_cast<int>(image_frame->bytesPerLine()) };
-                if(!m_codec.videoConvert(m_codec.getVidFrame(),size.width(),size.height(),data,linesize)){
+                if(!m_codec.videoFrameConvert(m_codec.getVidFrame(),size.width(),size.height(),data,linesize)){
                     emit onImageDone();
                     m_codec.popVidFrame();
                 }else {
                     qDebug() << "null";
                 }
+            }
+            if (m_codec.getAudBufferCount()>0)
+            {
+                
             }
             
         }
