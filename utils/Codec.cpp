@@ -353,7 +353,7 @@ int32_t Codec::decodePacketToFrame(AVCodecContext *pCodecCtx, const AVPacket *pP
     return 0;
 }
 
-int32_t Codec::videoFrameConvert(const AVFrame *pInFrame, OutVideoFrameSetting settings , uint8_t* data[1],int linesize[1])
+int32_t Codec::videoFrameConvert(const AVFrame *pInFrame, OutVideoFrameSetting &settings , uint8_t* data[1],int linesize[1])
 {
     if (pInFrame == nullptr) {
         qWarning() << "pInFrame is null";
@@ -389,7 +389,7 @@ int32_t Codec::videoFrameConvert(const AVFrame *pInFrame, OutVideoFrameSetting s
     return 0;
 }
 
-int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting settings, uint8_t *data[1], int linesize[1])
+int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &settings, uint8_t *data[1], int linesize[1])
 {
     int res = 0;
     if (pInFrame == nullptr) {
@@ -423,8 +423,10 @@ int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting s
         break;
     case 32:
         fmt = AV_SAMPLE_FMT_FLT;
+        break;
     case 63:
         fmt = AV_SAMPLE_FMT_DBL;
+        break;
     default:
         fmt = AV_SAMPLE_FMT_NONE; // 不支持的采样位数
     }
@@ -433,28 +435,40 @@ int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting s
                             &ch_ly,
                             fmt,
                             settings.sample_rate,
-                            &(pInFrame->ch_layout),
-                            AVSampleFormat(pInFrame->format),
-                            pInFrame->sample_rate,0,nullptr);
-    if(!res) return res;
+                            &(m_pAudCodecCtx->ch_layout),
+                            m_pAudCodecCtx->sample_fmt,
+                            m_pAudCodecCtx->sample_rate,0,nullptr);
+    if (res < 0) {
+        swr_free(&pSwrCtx);
+        return res;
+    }
 
     swr_init(pSwrCtx);
-    if(!res) return res;
+    if (res < 0) {
+        swr_free(&pSwrCtx);
+        return res;
+    }
 
     // 计算重采样后的采样点数
     int in_samples = pInFrame->nb_samples;
     int64_t delay = swr_get_delay(pSwrCtx, m_pAudCodecCtx->sample_rate);
-    int out_samples = av_rescale_rnd(delay + in_samples,
-                                    settings.sample_rate,
-                                    m_pAudCodecCtx->sample_rate,
-                                    AV_ROUND_UP);
-    av_samples_get_buffer_size(linesize,settings.channel_count,out_samples,fmt,0);
-    if(linesize == nullptr) return -1;
+    int out_samples = av_rescale_rnd(delay + in_samples, settings.sample_rate, m_pAudCodecCtx->sample_rate, AV_ROUND_UP);
+    int size = av_samples_get_buffer_size(nullptr,pInFrame->ch_layout.nb_channels,out_samples,fmt,0);
+    if (size < 0) {
+        swr_free(&pSwrCtx);
+        return -1;
+    }
 
-    data[0] = new uint8_t[linesize[0]];
+    data[0] = new uint8_t[size];
     res = swr_convert(pSwrCtx,data,out_samples,pInFrame->data,pInFrame->nb_samples);
-    if(!res) return -1;
+    if (res < 0) {
+        swr_free(&pSwrCtx);
+        delete[] data[0];
+        return -1;
+    }
+    linesize[0] = av_samples_get_buffer_size(nullptr,pInFrame->ch_layout.nb_channels,res,fmt,0);
 
+    swr_free(&pSwrCtx);
     return 0;
 }
 
@@ -524,3 +538,38 @@ bool Codec::isEnd()
     return m_isEnd;
 }
 
+int32_t Codec::getFinalVidFrame(uint8_t *data[1], int linesize[1])
+{
+    if(m_vidBuffer.empty()) return -1;
+    
+    int res=0;
+    res = videoFrameConvert(m_vidBuffer.front(),m_outVidSetting,data,linesize);
+    av_frame_free(&(m_vidBuffer.front()));
+    m_vidBuffer.pop();
+    return res;
+}
+
+int32_t Codec::getFinalAudFrame(uint8_t *data[1], int linesize[1])
+{
+    if(m_audBuffer.empty()) return -1;
+
+    int res=0;
+    res = audioFrameConvert(m_audBuffer.front(),m_outAudSetting,data,linesize);
+    av_frame_free(&(m_audBuffer.front()));
+    m_audBuffer.pop();
+    return res;
+}
+
+void Codec::setOutVideo(int width, int height)
+{
+    m_outVidSetting.width=width;
+    m_outVidSetting.height=height;
+
+}
+
+void Codec::setOutAudio(int sample_rate, int channel_count, int sample_fmt)
+{
+    m_outAudSetting.sample_rate=sample_rate;
+    m_outAudSetting.channel_count=channel_count;
+    m_outAudSetting.sample_fmt=sample_fmt;
+}

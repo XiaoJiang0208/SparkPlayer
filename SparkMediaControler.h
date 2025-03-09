@@ -5,6 +5,9 @@
 #include <qt5/QtCore/QObject>
 #include <qt5/QtGui/QImage>
 #include <qt5/QtCore/QSize>
+#include <qt5/QtMultimedia/QAudioFormat>
+#include <qt5/QtMultimedia/QAudioOutput>
+#include <qt5/QtCore/QIODevice>
 #include "utils/Codec.h"
 
 QT_USE_NAMESPACE
@@ -19,6 +22,11 @@ private:
     QSize size; // 大小
     QImage::Format format; // 色彩格式
     std::thread *codec_thead; // 解码线程
+    
+    QAudioFormat audio_format;
+    QAudioOutput *audio_output;
+    QIODevice * audio_device;
+
     bool isPlay;
     bool haveFile;
 
@@ -26,6 +34,8 @@ public:
 
     void reSize(QSize size);
     void reSize(int widht, int height);
+
+    int setAudioFormat();
 
     void play();
     void pause();

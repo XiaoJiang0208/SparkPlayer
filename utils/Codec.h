@@ -52,8 +52,8 @@ private:
 
     std::queue<AVFrame *> m_vidBuffer; // 视屏缓冲区
     std::queue<AVFrame *> m_audBuffer; // 视屏缓冲区
-    OutVideoFrameSetting outVidSetting;
-    OutAudioFrameSetting outAudSetting;
+    OutVideoFrameSetting m_outVidSetting;
+    OutAudioFrameSetting m_outAudSetting;
 
     bool m_isDecoding; // 是否在解码
     bool m_isEnd;
@@ -69,8 +69,8 @@ public:
     int32_t readPacket(); // 读取包
     int32_t packetDecoder(std::queue<AVPacket *> &packetQueue);
     int32_t decodePacketToFrame(AVCodecContext *pCodecCtx, const AVPacket *pPacket, AVFrame **ppFrame); // 解码视频帧
-    int32_t videoFrameConvert(const AVFrame *pInFrame, OutVideoFrameSetting settings, uint8_t* data[1],int linesize[1]); // 转换视屏帧
-    int32_t audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting settings, uint8_t* data[1],int linesize[1]);
+    int32_t videoFrameConvert(const AVFrame *pInFrame, OutVideoFrameSetting &settings, uint8_t* data[1],int linesize[1]); // 转换视屏帧
+    int32_t audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &settings, uint8_t* data[1],int linesize[1]);
 
     void threadReadPacket();
     void threadDecodeVideo();
@@ -81,6 +81,9 @@ public:
 
     int32_t getFinalVidFrame(uint8_t* data[1],int linesize[1]);
     int32_t getFinalAudFrame(uint8_t* data[1],int linesize[1]);
+
+    void setOutVideo(int width, int height);
+    void setOutAudio(int sample_rate, int channel_count, int sample_fmt);
 };
 
 

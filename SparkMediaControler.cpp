@@ -5,12 +5,31 @@ void SparkMediaControler::reSize(QSize size)
     this->size = size;
     delete image_frame;
     image_frame = new QImage(size,format);
-    
+    m_codec.setOutVideo(size.width(),size.height());
 }
 
 void SparkMediaControler::reSize(int widht, int height)
 {
     reSize(QSize(widht,height));
+}
+
+int SparkMediaControler::setAudioFormat()
+{
+
+    QAudioDeviceInfo deviceInfo = QAudioDeviceInfo::defaultOutputDevice();
+    audio_format = deviceInfo.preferredFormat();
+    qDebug()<<audio_format.channelCount();
+    qDebug()<<audio_format.sampleRate();
+    qDebug()<<audio_format.sampleSize();
+    qDebug()<<audio_format.codec();
+    
+    m_codec.setOutAudio(audio_format.sampleRate(),audio_format.channelCount(),audio_format.sampleSize());
+    if (audio_output == nullptr)
+    {
+        audio_output = new QAudioOutput(audio_format);
+    }
+    
+    return 0;
 }
 
 void SparkMediaControler::play()
@@ -41,6 +60,8 @@ void SparkMediaControler::openMedia(QString path){
     codec_thead = new std::thread(&SparkMediaControler::codec, this);
     codec_thead->detach();
 
+    setAudioFormat(); // 设置音频设备格式
+    audio_device = audio_output->start();
 }
 void SparkMediaControler::closeMedia(){
     haveFile = false;
@@ -65,19 +86,19 @@ void SparkMediaControler::codec(){
             {
                 isPlay = false;
             }
-            if(m_codec.getVidBufferCount()>0){
-                uint8_t* data[1] = { reinterpret_cast<uint8_t*>(image_frame->bits()) };
-                int linesize[1] = { static_cast<int>(image_frame->bytesPerLine()) };
-                if(!m_codec.videoFrameConvert(m_codec.getVidFrame(),size.width(),size.height(),data,linesize)){
-                    emit onImageDone();
-                    m_codec.popVidFrame();
-                }else {
-                    qDebug() << "null";
-                }
+
+            
+            uint8_t* data[1] = { reinterpret_cast<uint8_t*>(image_frame->bits()) };
+            int linesize[1] = { static_cast<int>(image_frame->bytesPerLine()) };
+            if(!m_codec.getFinalVidFrame(data,linesize)){
+                emit onImageDone();
             }
-            if (m_codec.getAudBufferCount()>0)
+
+            uint8_t* aud_data[1];
+            int aud_size[1]={0};
+            if (!m_codec.getFinalAudFrame(aud_data,aud_size))
             {
-                
+                audio_device->write((const char*)aud_data[0],aud_size[0]);
             }
             
         }
@@ -93,9 +114,13 @@ SparkMediaControler::SparkMediaControler()
     size.setHeight(1080);
     format = QImage::Format_RGB32;
     image_frame = new QImage(size,format);
+    audio_output = nullptr;
+    audio_device = nullptr;
 }
 
 SparkMediaControler::~SparkMediaControler()
 {
-    
+    closeMedia();
+    audio_device->deleteLater();
+    audio_output->deleteLater();
 }
