@@ -9,6 +9,7 @@ Codec::Codec(/* args */)
     m_audStreamIndex = -1;
     m_isDecoding = false;
     m_isEnd = false;
+    m_sync.InitClock();
 }
 
 Codec::~Codec()
@@ -18,8 +19,8 @@ Codec::~Codec()
 
 int32_t Codec::openFile(const char *path){
 
-    const AVCodec *pVidCodec; // 视频编解码器
-    const AVCodec *pAudCodec; // 音频编解码器
+    const AVCodec *pVidCodec = nullptr; // 视频编解码器
+    const AVCodec *pAudCodec = nullptr; // 音频编解码器
     int res = 0;
 
     res = avformat_open_input(&m_pAvFormatCtx, path, nullptr, nullptr); // 打开文件
@@ -258,14 +259,14 @@ int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue)
         // 将pts转换为秒数，假设m_vidTimeBase为视频time_base
         double videoPts = pOutFrame->pts * av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base);
         // 计算与音频主时钟的差值
-        double delay = videoPts - m_audioClock;
+        double delay = videoPts - m_sync.getClock();
 
         if (delay > 0)
         {
             // 等待delay对应的微秒数，此处使用av_usleep（注意单位为微秒）
             av_usleep(static_cast<unsigned int>(delay * 1000000));
         }
-        else if (delay < -0.05) // 可设置阈值，根据实际情况丢弃过期帧
+        else if (delay < -0.01) // 可设置阈值，根据实际情况丢弃过期帧
         {
             av_frame_free(&pOutFrame);
             av_packet_free(&pPacket);
@@ -287,19 +288,21 @@ int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue)
             return res;
         }
 
-        double audioPts = pPacket->pts * av_q2d(m_pAvFormatCtx->streams[m_audStreamIndex]->time_base);
-        // 计算等待时间，若 audioPts 在当前 m_audioClock 之后，则等待
-        double delay = audioPts - m_audioClock;
-        if (delay > 0)
-        {
-            av_usleep(static_cast<unsigned int>(delay * 1000000)); // 单位微秒
-        }
-        // 更新 m_audioClock（单位：秒）
-        m_audioClock = audioPts;
-
+        
         m_audBuffer.push(pOutFrame);
         av_packet_free(&pPacket);
         packetQueue.pop();
+        double audioPts = pOutFrame->pts * av_q2d(m_pAvFormatCtx->streams[m_audStreamIndex]->time_base);
+        // 计算等待时间，若 audioPts 在当前 m_audioClock 之后，则等待
+        double delay = audioPts - m_sync.getClock();
+        if (delay > 0.01)
+        {
+            qDebug()<<"wantdelay: "<<delay*1000000;
+            av_usleep(static_cast<unsigned int>(delay*1000000)); // 单位微秒
+        }
+        // 更新 m_audioClock（单位：秒）
+        m_sync.setClock(audioPts);
+
         return 0;
 
     }
@@ -392,81 +395,114 @@ int32_t Codec::videoFrameConvert(const AVFrame *pInFrame, OutVideoFrameSetting &
 int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &settings, uint8_t *data[1], int linesize[1])
 {
     int res = 0;
-    if (pInFrame == nullptr) {
+    if (!pInFrame) {
         qWarning() << "pInFrame is null";
         return -1;
     }
-    
+
+    // 分配 SwrContext
     SwrContext *pSwrCtx = swr_alloc();
     if (!pSwrCtx) {
         qWarning() << "分配重采样上下文失败";
         return -1;
     }
 
-    // 获取声道布局
-    AVChannelLayout ch_ly;
-    av_channel_layout_default(&ch_ly, settings.channel_count);
+    // 配置输出通道布局（根据目标通道数）
+    AVChannelLayout out_ch_layout;
+    av_channel_layout_default(&out_ch_layout, settings.channel_count);
     
-    
-    // 获取采样位深
-    AVSampleFormat fmt;
-    switch (settings.sample_fmt)
-    {
-    case 8:
-        fmt = AV_SAMPLE_FMT_U8;
-        break;
-    case 16:
-        fmt = AV_SAMPLE_FMT_S16;
-        break;
-    case 24:
-        fmt = AV_SAMPLE_FMT_S32;
-        break;
-    case 32:
-        fmt = AV_SAMPLE_FMT_FLT;
-        break;
-    case 63:
-        fmt = AV_SAMPLE_FMT_DBL;
-        break;
-    default:
-        fmt = AV_SAMPLE_FMT_NONE; // 不支持的采样位数
-    }
 
-    res = swr_alloc_set_opts2(&pSwrCtx,
-                            &ch_ly,
-                            fmt,
-                            settings.sample_rate,
-                            &(m_pAudCodecCtx->ch_layout),
-                            m_pAudCodecCtx->sample_fmt,
-                            m_pAudCodecCtx->sample_rate,0,nullptr);
-    if (res < 0) {
-        swr_free(&pSwrCtx);
-        return res;
+    // 根据采样位深选择输出采样格式
+    AVSampleFormat out_format = AV_SAMPLE_FMT_NONE;
+    switch (settings.sample_fmt) {
+        case 8:
+            out_format = AV_SAMPLE_FMT_U8;
+            break;
+        case 16:
+            out_format = AV_SAMPLE_FMT_S16;
+            break;
+        case 24:
+            out_format = AV_SAMPLE_FMT_S32;
+            break;
+        case 32:
+            out_format = AV_SAMPLE_FMT_FLT;
+            break;
+        case 63:
+            out_format = AV_SAMPLE_FMT_DBL;
+            break;
+        default:
+            out_format = AV_SAMPLE_FMT_NONE;
+            break;
     }
-
-    swr_init(pSwrCtx);
-    if (res < 0) {
-        swr_free(&pSwrCtx);
-        return res;
-    }
-
-    // 计算重采样后的采样点数
-    int in_samples = pInFrame->nb_samples;
-    int64_t delay = swr_get_delay(pSwrCtx, m_pAudCodecCtx->sample_rate);
-    int out_samples = av_rescale_rnd(delay + in_samples, settings.sample_rate, m_pAudCodecCtx->sample_rate, AV_ROUND_UP);
-    int size = av_samples_get_buffer_size(nullptr,pInFrame->ch_layout.nb_channels,out_samples,fmt,0);
-    if (size < 0) {
+    if (out_format == AV_SAMPLE_FMT_NONE) {
+        qWarning() << "不支持的采样位深:" << settings.sample_fmt;
         swr_free(&pSwrCtx);
         return -1;
     }
 
-    data[0] = new uint8_t[size];
-    res = swr_convert(pSwrCtx,data,out_samples,pInFrame->data,pInFrame->nb_samples);
+    // 这里假设输入的 AVFrame 已设置好声道布局和采样格式
+    // 使用输入 pInFrame->ch_layout 及 pInFrame->format，采样率为 pInFrame->sample_rate
+    res = swr_alloc_set_opts2(&pSwrCtx,
+                              &out_ch_layout,    // 输出声道布局
+                              out_format,        // 输出采样格式（转换为packed格式）
+                              settings.sample_rate, // 输出采样率
+                              &(pInFrame->ch_layout), // 输入声道布局
+                              (AVSampleFormat)pInFrame->format, // 输入采样格式
+                              pInFrame->sample_rate, // 输入采样率
+                              0,
+                              nullptr);
     if (res < 0) {
+        qWarning() << "配置重采样上下文失败:" << res;
+        swr_free(&pSwrCtx);
+        return res;
+    }
+
+    res = swr_init(pSwrCtx);
+    if (res < 0) {
+        qWarning() << "初始化重采样上下文失败:" << res;
+        swr_free(&pSwrCtx);
+        return res;
+    }
+
+    // 计算输出采样点数：延时加上输入采样点数
+    int in_samples = pInFrame->nb_samples;
+    //int64_t delay = swr_get_delay(pSwrCtx, pInFrame->sample_rate);
+    int out_samples = swr_get_out_samples(pSwrCtx,pInFrame->nb_samples);
+
+    // 获取通道数（通常可直接使用 pInFrame->ch_layout.nb_channels）
+    int nb_channels = pInFrame->ch_layout.nb_channels;
+    // 计算目标缓冲区大小
+    int buffer_size = av_samples_get_buffer_size(nullptr, nb_channels,
+                                                 out_samples, out_format, 0);
+    if (buffer_size < 0) {
+        qWarning() << "计算缓冲区大小失败";
+        swr_free(&pSwrCtx);
+        return -1;
+    }
+
+    if (data[0]!=NULL){
+        delete [] data[0];
+    }
+    // 分配缓冲区并执行重采样
+    data[0] = new uint8_t[buffer_size];
+    int converted_samples = swr_convert(pSwrCtx, data, out_samples,
+                                        pInFrame->data, in_samples);
+    if (converted_samples < 0) {
+        qWarning() << "重采样转换失败:" << converted_samples;
         swr_free(&pSwrCtx);
         delete[] data[0];
         return -1;
     }
-    linesize[0] = av_samples_get_buffer_size(nullptr,pInFrame->ch_layout.nb_channels,res,fmt,0);
+
+    // 根据实际转换后的采样数重新计算输出数据大小
+    linesize[0] = av_samples_get_buffer_size(nullptr, nb_channels, converted_samples,
+                                             out_format, 0);
+    if (linesize[0] < 0) {
+        qWarning() << "重新计算输出缓冲区大小失败";
+        swr_free(&pSwrCtx);
+        delete[] data[0];
+        return -1;
+    }
 
     swr_free(&pSwrCtx);
     return 0;
@@ -554,7 +590,11 @@ int32_t Codec::getFinalAudFrame(uint8_t *data[1], int linesize[1])
     if(m_audBuffer.empty()) return -1;
 
     int res=0;
+    auto start = std::chrono::high_resolution_clock::now();
     res = audioFrameConvert(m_audBuffer.front(),m_outAudSetting,data,linesize);
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    qDebug() << "spendelay:" << elapsed.count()*1000000;
     av_frame_free(&(m_audBuffer.front()));
     m_audBuffer.pop();
     return res;

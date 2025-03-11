@@ -12,6 +12,9 @@ extern "C" {
 }
 
 #include <thread>
+#include <chrono>
+#include <ctime>
+#include <math.h>
 #include <queue>
 #include <QDebug>
 
@@ -35,15 +38,52 @@ struct OutAudioFrameSetting
     int sample_fmt = 16;
 };
 
+class AVSync
+{
+public:
+    AVSync(){
+        start_ = std::chrono::steady_clock::now();
+    };
+
+    void InitClock(){
+        setClock(NAN);
+    }
+    void setClockAt(double pts, double time){
+        pts_ = pts;
+        pts_drift_ = pts_ - time;
+    }
+    double getClock(){
+        double time = GetSeconds();
+        return pts_drift_ + time;
+    }
+    void setClock(double pts){
+        double time = GetSeconds();
+        setClockAt(pts,time);
+    }
+    double GetSeconds(){
+        auto now = std::chrono::steady_clock::now();
+        std::chrono::duration<double> diff = now - start_;
+        return diff.count();
+    }
+
+    // ...existing code...
+    double pts_ = 0;
+    double pts_drift_ = 0;
+private:
+    std::chrono::steady_clock::time_point start_;
+};
+
 class Codec // 单例模式
 {
 private:
+    AVSync m_sync;
     AVFormatContext *m_pAvFormatCtx; // 格式上下文
     AVCodecContext *m_pVidCodecCtx; // 视频编解码上下文
     uint32_t m_vidStreamIndex; // 视频流索引
 
     AVCodecContext *m_pAudCodecCtx; // 音频编解码上下文
     uint32_t m_audStreamIndex; // 音频流索引
+    double m_audDelayCorrection;
 
     double m_audioClock;
 
@@ -58,6 +98,7 @@ private:
     bool m_isDecoding; // 是否在解码
     bool m_isEnd;
     
+    double m_audDelay;
 
 public:
     Codec(/* args */);

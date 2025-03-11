@@ -18,6 +18,7 @@ int SparkMediaControler::setAudioFormat()
 
     QAudioDeviceInfo deviceInfo = QAudioDeviceInfo::defaultOutputDevice();
     audio_format = deviceInfo.preferredFormat();
+    audio_format.setSampleRate(48000);
     qDebug()<<audio_format.channelCount();
     qDebug()<<audio_format.sampleRate();
     qDebug()<<audio_format.sampleSize();
@@ -27,7 +28,26 @@ int SparkMediaControler::setAudioFormat()
     if (audio_output == nullptr)
     {
         audio_output = new QAudioOutput(audio_format);
+        audio_output->setBufferSize(48000*2);
+        qDebug() <<"dasdfasdfasdf"<< audio_output->bufferSize();
     }
+    
+    return 0;
+}
+
+int SparkMediaControler::setAudioDevice()
+{
+    audio_spec.freq=48000;
+    audio_spec.format = AUDIO_S16SYS;
+    audio_spec.channels = 2;
+    audio_spec.silence = 0;
+    audio_spec.samples = 4096;
+    audio_spec.callback = nullptr;
+    if ((audio_device_id = SDL_OpenAudioDevice(nullptr,0,&audio_spec, nullptr,SDL_AUDIO_ALLOW_ANY_CHANGE)) < 2){
+        qWarning() << "open audio device failed ";
+        return -1;
+    }
+    m_codec.setOutAudio(48000,2,16);
     
     return 0;
 }
@@ -57,11 +77,10 @@ void SparkMediaControler::openMedia(QString path){
         return;
     }
     haveFile = true;
+    setAudioDevice();
     codec_thead = new std::thread(&SparkMediaControler::codec, this);
     codec_thead->detach();
 
-    setAudioFormat(); // 设置音频设备格式
-    audio_device = audio_output->start();
 }
 void SparkMediaControler::closeMedia(){
     haveFile = false;
@@ -74,6 +93,8 @@ QImage *SparkMediaControler::getImg()
 }
 
 void SparkMediaControler::codec(){
+    auto start = std::chrono::high_resolution_clock::now();
+    SDL_PauseAudioDevice(audio_device_id,0);
     while (true)
     {
         if (!haveFile)
@@ -87,6 +108,40 @@ void SparkMediaControler::codec(){
                 isPlay = false;
             }
 
+
+            uint8_t* aud_data[1];
+            int aud_size[1]={0};
+            if (!m_codec.getFinalAudFrame(aud_data,aud_size))
+            {
+                
+                int res = SDL_QueueAudio(audio_device_id, aud_data[0], aud_size[0]);
+                if (res == -1)
+                {
+                    qDebug() << "SDL_QueueAudio error:" << SDL_GetError();
+                }
+                // int freeBytes = audio_output->bytesFree();
+                // qDebug() <<"periodSize:   "<< audio_output->periodSize();
+
+                // if(freeBytes >= aud_size[0]){
+                //     //audio_device->write((const char*)aud_data[0], aud_size[0]);
+                    
+                    
+                // } else {
+                //     if (freeBytes-aud_size[0]<aud_size[0])
+                //     {
+                //         qDebug() << "缓冲区空间不足，当前剩余字节数:" << freeBytes;
+                //         // 可选：等待一会儿再写入，或者清理缓冲区6后再写
+                //         std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                        
+                //     }
+                    
+                // }
+                // auto end = std::chrono::high_resolution_clock::now();
+                // std::chrono::duration<double> elapsed = end - start;
+                // qDebug() << "realdelay:" << elapsed.count()*1000000;
+                // start=end;
+            }
+            
             
             uint8_t* data[1] = { reinterpret_cast<uint8_t*>(image_frame->bits()) };
             int linesize[1] = { static_cast<int>(image_frame->bytesPerLine()) };
@@ -94,13 +149,6 @@ void SparkMediaControler::codec(){
                 emit onImageDone();
             }
 
-            uint8_t* aud_data[1];
-            int aud_size[1]={0};
-            if (!m_codec.getFinalAudFrame(aud_data,aud_size))
-            {
-                audio_device->write((const char*)aud_data[0],aud_size[0]);
-            }
-            
         }
     }
     
@@ -116,6 +164,7 @@ SparkMediaControler::SparkMediaControler()
     image_frame = new QImage(size,format);
     audio_output = nullptr;
     audio_device = nullptr;
+    SDL_Init(SDL_INIT_AUDIO);
 }
 
 SparkMediaControler::~SparkMediaControler()

@@ -2,6 +2,7 @@
 #define SPARKMEDIACONTROLER_H
 
 #include <thread>
+#include <ctime>
 #include <qt5/QtCore/QObject>
 #include <qt5/QtGui/QImage>
 #include <qt5/QtCore/QSize>
@@ -9,6 +10,8 @@
 #include <qt5/QtMultimedia/QAudioOutput>
 #include <qt5/QtCore/QIODevice>
 #include "utils/Codec.h"
+
+#include <SDL.h>
 
 QT_USE_NAMESPACE
 
@@ -27,6 +30,9 @@ private:
     QAudioOutput *audio_output;
     QIODevice * audio_device;
 
+    SDL_AudioSpec audio_spec;
+    SDL_AudioDeviceID audio_device_id;
+
     bool isPlay;
     bool haveFile;
 
@@ -36,6 +42,7 @@ public:
     void reSize(int widht, int height);
 
     int setAudioFormat();
+    int setAudioDevice();
 
     void play();
     void pause();
