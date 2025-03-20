@@ -41,17 +41,21 @@ public:
     void reSize(QSize size);
     void reSize(int widht, int height);
 
-    int setAudioFormat();
     int setAudioDevice();
 
     void play();
     void pause();
 
+    friend void audioCallback(void* userData, Uint8* stream, int len);
 
     void openMedia(QString path);
     void closeMedia();
     QImage *getImg();
-    void codec();
+    void playAudio();
+    void playImg();
+
+    bool getStatus();
+    void setSeekTime(double time){m_codec.setSeekTime(time);}
 
     SparkMediaControler(/* args */);
     ~SparkMediaControler();

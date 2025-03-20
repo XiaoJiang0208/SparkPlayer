@@ -93,17 +93,21 @@ int32_t Codec::openFile(const char *path){
         
     }
 
-    if (pVidCodec == nullptr)
+    if (pVidCodec == nullptr && pAudCodec == nullptr)
     {
-        qWarning() << "找不到视频流";
+        qWarning() << "找不到有效的流";
         closeFile();
         return -1;
     }
-    if (pAudCodec == nullptr)
+
+    if (pAudCodec)
     {
-        qWarning() << "找不到音频流";
-        closeFile();
-        return -1;
+        m_mediaType = MediaType::audio;
+    }
+    
+    if (pVidCodec)
+    {
+        m_mediaType = MediaType::video;
     }
 
     // 打开视频解码器
@@ -134,7 +138,7 @@ int32_t Codec::openFile(const char *path){
             return -1;
         }
     }
-    if (pAudCodec)
+    if (pAudCodec != nullptr)
     {
         // 分配音频解码器上下文
         m_pAudCodecCtx = avcodec_alloc_context3(pAudCodec);
@@ -217,7 +221,7 @@ int32_t Codec::readPacket(){
     res = av_read_frame(m_pAvFormatCtx, pPacket);
     if (res == AVERROR_EOF)
     {
-        qWarning() << "读取到文件结尾";
+        qDebug() << "读取到文件结尾";
         return res;
     } else if (res < 0)
     {
@@ -230,7 +234,7 @@ int32_t Codec::readPacket(){
     } 
     else if (pPacket->stream_index == m_audStreamIndex)
     {
-        m_audPacketQueue.push(pPacket);        
+        m_audPacketQueue.push(pPacket);
     }
     
     return res;
@@ -247,8 +251,19 @@ int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue)
     AVFrame *pOutFrame = nullptr;
     int res = 0;
 
-    if (pPacket->stream_index == m_vidStreamIndex)
+    if (pPacket->stream_index == m_vidStreamIndex) // 视频
     {
+        // 将pts转换为秒数，假设m_vidTimeBase为视频time_base
+        double videoPts = pPacket->pts * av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base);
+        // 计算与音频主时钟的差值
+        double delay = videoPts - m_sync.getClock();
+        if (delay < -1.0) {
+            qDebug()<<"nonono"<<delay;
+            av_packet_free(&pPacket);
+            packetQueue.pop();
+            return -1;
+        }
+
         res = decodePacketToFrame(m_pVidCodecCtx, pPacket, &pOutFrame);
         if (res || pOutFrame==nullptr){
             av_packet_free(&pPacket);
@@ -257,21 +272,24 @@ int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue)
         }
 
         // 将pts转换为秒数，假设m_vidTimeBase为视频time_base
-        double videoPts = pOutFrame->pts * av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base);
+        videoPts = pOutFrame->pts * av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base);
         // 计算与音频主时钟的差值
-        double delay = videoPts - m_sync.getClock();
+        delay = videoPts - m_sync.getClock();
 
-        if (delay > 0)
+        if (delay > 1.0)
         {
-            // 等待delay对应的微秒数，此处使用av_usleep（注意单位为微秒）
-            av_usleep(static_cast<unsigned int>(delay * 1000000));
-        }
-        else if (delay < -0.01) // 可设置阈值，根据实际情况丢弃过期帧
-        {
+            if (delay >1.0) qDebug()<<"fix!!!!";
+            qDebug()<<"nonono"<<delay;
             av_frame_free(&pOutFrame);
-            av_packet_free(&pPacket);
+            if (pPacket) av_packet_free(&pPacket);
             packetQueue.pop();
             return 0;
+        } 
+        else if (delay > 0.0) // 可设置阈值，根据实际情况丢弃过期帧
+        {
+            // 等待delay对应的微秒数，此处使用av_usleep（注意单位为微秒
+            qDebug()<<"666:"<<delay;
+            av_usleep(static_cast<unsigned int>(delay * 1000000));
         }
 
         m_vidBuffer.push(pOutFrame);
@@ -279,8 +297,11 @@ int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue)
         packetQueue.pop();
         return 0;
 
-    } else if (pPacket->stream_index == m_audStreamIndex)
+    } else if (pPacket->stream_index == m_audStreamIndex) //音频
     {
+        if (m_audBuffer.size()>2){
+            return 0;
+        }
         res = decodePacketToFrame(m_pAudCodecCtx, pPacket, &pOutFrame);
         if (pOutFrame == nullptr){
             av_packet_free(&pPacket);
@@ -292,16 +313,6 @@ int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue)
         m_audBuffer.push(pOutFrame);
         av_packet_free(&pPacket);
         packetQueue.pop();
-        double audioPts = pOutFrame->pts * av_q2d(m_pAvFormatCtx->streams[m_audStreamIndex]->time_base);
-        // 计算等待时间，若 audioPts 在当前 m_audioClock 之后，则等待
-        double delay = audioPts - m_sync.getClock();
-        if (delay > 0.01)
-        {
-            qDebug()<<"wantdelay: "<<delay*1000000;
-            av_usleep(static_cast<unsigned int>(delay*1000000)); // 单位微秒
-        }
-        // 更新 m_audioClock（单位：秒）
-        m_sync.setClock(audioPts);
 
         return 0;
 
@@ -358,37 +369,70 @@ int32_t Codec::decodePacketToFrame(AVCodecContext *pCodecCtx, const AVPacket *pP
 
 int32_t Codec::videoFrameConvert(const AVFrame *pInFrame, OutVideoFrameSetting &settings , uint8_t* data[1],int linesize[1])
 {
-    if (pInFrame == nullptr) {
-        qWarning() << "pInFrame is null";
-        return -1;
-    }
+    // 计算缩放比例（等比例缩放，使得图像能完整显示在目标画布内）
+    double ratioWidth = (double)settings.width / pInFrame->width;
+    double ratioHeight = (double)settings.height / pInFrame->height;
+    double ratio = std::min(ratioWidth, ratioHeight);
+
+    int newWidth = static_cast<int>(pInFrame->width * ratio);
+    int newHeight = static_cast<int>(pInFrame->height * ratio);
+    int xOffset = (settings.width - newWidth) / 2;
+    int yOffset = (settings.height - newHeight) / 2;
 
     // 确保输出缓冲区已分配并足够大，这里采用 RGB32，每个像素4字节
     // 如果输出内存未分配，则需先分配内存
     // 示例：假如你未在调用前准备内存，则可在此分配临时内存
-    int requiredSize = settings.width * settings.height * 4;
-    if (data[0] == nullptr) {
-        data[0] = (uint8_t*)av_malloc(requiredSize);
-        if (data[0] == nullptr) {
-            qWarning() << "无法分配内存";
-            return -1;
-        }
-        linesize[0] = settings.width * 4;
-    }
-
-    SwsContext *pSwsCtx = nullptr;
-
-    pSwsCtx = sws_getContext(pInFrame->width,pInFrame->height,(AVPixelFormat)pInFrame->format, settings.width, settings.height, AV_PIX_FMT_RGB32, SWS_BICUBIC,nullptr,nullptr,nullptr);
-    if (pSwsCtx == nullptr)
-    {
-        qWarning() << "创建格式转换器失败";
+    const AVPixFmtDescriptor* desc = av_pix_fmt_desc_get(settings.pixelFormat);
+    if (!desc) {
+        qWarning() << "无法获取像素格式描述";
         return -1;
     }
+    int bytesPerPixel = av_get_bits_per_pixel(desc) / 8;
+
+    // 填充目标画布为黑色背景
+    for (int y = 0; y < settings.height; y++) {
+        memset(data[0] + y * linesize[0], 0, settings.width * bytesPerPixel);
+    }
+
+    // 为缩放后的图像分配临时缓冲区
+    uint8_t *tempData[4] = { nullptr };
+    int tempLinesize[4] = { 0 };
+    int ret = av_image_alloc(tempData, tempLinesize, newWidth, newHeight, settings.pixelFormat, 1);
+    if (ret < 0) {
+        return ret;
+    }
+
+    // 创建缩放上下文
+    SwsContext *swsCtx = sws_getContext(
+        pInFrame->width, pInFrame->height, (AVPixelFormat)pInFrame->format,
+        newWidth, newHeight, settings.pixelFormat,
+        SWS_BILINEAR, nullptr, nullptr, nullptr);
+    if (!swsCtx) {
+        av_freep(&tempData[0]);
+        return -1;
+    }
+
+    // 执行缩放转换
+    int scaledH = sws_scale(
+        swsCtx,
+        pInFrame->data, pInFrame->linesize,
+        0, pInFrame->height,
+        tempData, tempLinesize);
+    sws_freeContext(swsCtx);
+    if (scaledH != newHeight) {
+        av_freep(&tempData[0]);
+        return -1;
+    }
+
+    // 将缩放后的图像拷贝到目标画布居中位置
+    for (int y = 0; y < newHeight; y++) {
+        memcpy(
+            data[0] + ((y + yOffset) * linesize[0] + xOffset * bytesPerPixel),
+            tempData[0] + y * tempLinesize[0],
+            newWidth * bytesPerPixel);
+    }
     
-    sws_scale(pSwsCtx, pInFrame->data, pInFrame->linesize, 0, settings.height, data, linesize);
-
-    sws_freeContext(pSwsCtx);
-
+    av_freep(&tempData[0]);
     return 0;
 }
 
@@ -510,45 +554,56 @@ int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &
 
 void Codec::threadReadPacket()
 {
+    qDebug()<<"readin";
     while (m_isDecoding)
     {
         if (m_audPacketQueue.empty() || m_vidPacketQueue.empty())
         {
-            if (readPacket()==-1 && m_audPacketQueue.empty() && m_vidPacketQueue.empty()){
+            if (readPacket()==AVERROR_EOF && m_audPacketQueue.empty() && m_vidPacketQueue.empty()){
                 
-                m_isDecoding == false;
-                m_isEnd == true;
+                m_isDecoding = false;
+                m_isEnd = true;
             }
         }
     }
-    
+    qDebug()<<"readout";
 }
 
 void Codec::threadDecodeVideo()
 {
+    qDebug()<<"vidin";
     while (m_isDecoding)
     {
         packetDecoder(m_vidPacketQueue);
     }
+    qDebug()<<"vidout";
     
 }
 
 void Codec::threadDecodeAudio()
 {
+    qDebug()<<"audin";
     while (m_isDecoding)
     {
         packetDecoder(m_audPacketQueue);
     }
+    qDebug()<<"audout";
     
 }
 
 void Codec::startDecoding()
 {
+    if (m_isEnd)
+    {
+        setSeekTime(0.0);
+    }
+    
+    
     m_isDecoding = true;
     m_isEnd = false;
-    static std::thread tRead(&Codec::threadReadPacket,this);
-    static std::thread tVideo(&Codec::threadDecodeVideo,this);
-    static std::thread tAudio(&Codec::threadDecodeAudio,this);
+    std::thread tRead(&Codec::threadReadPacket,this);
+    std::thread tVideo(&Codec::threadDecodeVideo,this);
+    std::thread tAudio(&Codec::threadDecodeAudio,this);
     
     if (tRead.joinable())
     {
@@ -590,11 +645,11 @@ int32_t Codec::getFinalAudFrame(uint8_t *data[1], int linesize[1])
     if(m_audBuffer.empty()) return -1;
 
     int res=0;
-    auto start = std::chrono::high_resolution_clock::now();
     res = audioFrameConvert(m_audBuffer.front(),m_outAudSetting,data,linesize);
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = end - start;
-    qDebug() << "spendelay:" << elapsed.count()*1000000;
+    
+        double audioPts = m_audBuffer.front()->pts * av_q2d(m_pAvFormatCtx->streams[m_audStreamIndex]->time_base);
+        
+    m_sync.setClock(audioPts);
     av_frame_free(&(m_audBuffer.front()));
     m_audBuffer.pop();
     return res;
@@ -612,4 +667,44 @@ void Codec::setOutAudio(int sample_rate, int channel_count, int sample_fmt)
     m_outAudSetting.sample_rate=sample_rate;
     m_outAudSetting.channel_count=channel_count;
     m_outAudSetting.sample_fmt=sample_fmt;
+}
+
+double Codec::getSeekTime()
+{
+    return m_sync.getClock();
+}
+
+void Codec::setSeekTime(double time)
+{
+    if (!m_pAvFormatCtx || m_audStreamIndex < 0) {
+        qWarning() << "无效的格式上下文或音频流索引";
+        return;
+    }
+    int64_t pts = time / av_q2d(m_pAvFormatCtx->streams[m_audStreamIndex]->time_base);
+    av_seek_frame(m_pAvFormatCtx,m_audStreamIndex,pts,AVSEEK_FLAG_BACKWARD);
+    m_sync.setClock(pts);
+    //pts = time / av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base);
+    //av_seek_frame(m_pAvFormatCtx,m_vidStreamIndex,pts,AVSEEK_FLAG_BACKWARD);
+
+}
+
+int32_t Codec::getTitleImg(QString path, int width, int height, uint8_t *data[1], int linesize[1])
+{
+    int32_t res;
+    Codec codec;
+    res = codec.openFile(path.toStdString().c_str());
+    if (res) return res;
+
+    if (codec.getMediaType()==MediaType::video)
+    {
+        do
+        {
+            codec.readPacket();
+            res = codec.packetDecoder(codec.m_vidPacketQueue);
+        } while (res = -11);
+        if (res) return res;
+        codec.setOutVideo(width,height);
+        return codec.getFinalVidFrame(data,linesize);
+    }
+    
 }

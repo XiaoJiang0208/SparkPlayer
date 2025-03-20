@@ -5,19 +5,22 @@ Sparkplayer::Sparkplayer()
     : DMainWindow()
 {
     main_page = nullptr;
-    ct = new SparkMediaControler();
-    page_data.append(PageData{"主页","shit",QUrl(""),"",Box});
-    page_data.append(PageData{"音乐","Content2",QUrl(""),"",Box});
-    page_data.append(PageData{"视屏","Content3",QUrl(""),"",Box});
+    media_controler = new SparkMediaControler();
+    media_controler->reSize(960,540);
     setupUI();
     connect(DGuiApplicationHelper::instance(), &DGuiApplicationHelper::themeTypeChanged, this, &Sparkplayer::slotThemeTypeChanged);
-    connect(ct,&SparkMediaControler::onImageDone,this,&Sparkplayer::showimg);
+    connect(media_controler,&SparkMediaControler::onImageDone,this,&Sparkplayer::showimg);
     slotThemeTypeChanged();
+    media_controler->openMedia("/home/xiaojiang/Desktop/ttt/1.mp4");
+
+    addMediaPage(PageData{"主页","shit","","",Box},-1);
+    addMediaPage(PageData{"音乐","Content2","~/Music","",Box},-1);
+    addMediaPage(PageData{"视屏","Content3","/home/xiaojiang/Desktop/ttt","",Box},-1);
 }
 
 Sparkplayer::~Sparkplayer()
 {
-    delete ct;
+    delete media_controler;
 }
 
 void Sparkplayer::setupUI()
@@ -27,12 +30,9 @@ void Sparkplayer::setupUI()
     //titlebar()->setAutoHideOnFullscreen(true);
     //titlebar()->setBackgroundTransparent(true);
     titlebar()->deleteLater();
-    title_bar = new DTitlebar(this);
-    title_bar->setFixedHeight(50);
-    title_bar->setBackgroundTransparent(true);
-    title_bar->setIcon(title_bar->style()->standardIcon(DStyle::SP_ComputerIcon));
+    title_bar = new TitleBar(this);
+    //title_bar->setTitle("ttt");
     setTitlebarShadowEnabled(false); // 取消标题栏阴影
-    setWindowTitle("SparkPlayer"); // 设置标题栏的标题
     setMinimumSize(480,270); // 长宽比使用16:9适应大部分视屏比例
     resize(960,540);
     // 得手动整一个centralWidget有点无语
@@ -52,9 +52,11 @@ void Sparkplayer::setupUI()
     up_layout->addItem(left_layout);
     //标题
     title = new QLabel(tr("SparkPlayer"),this);
-    title->setContentsMargins(50,0,0,0);
-    title->setFixedHeight(50);
+    title->setAlignment(Qt::AlignCenter);
+    title->setFixedSize(200,50);
     left_layout->addWidget(title);
+
+
     // 左侧媒体列表
     media_list = new DScrollArea(centralWidget()); // 初始化滚动列表
     left_layout->addWidget(media_list);
@@ -66,29 +68,22 @@ void Sparkplayer::setupUI()
     media_list_context_layout->setContentsMargins(10,10,0,0);
     media_list_context_layout->setAlignment(Qt::AlignTop); // 从上到下排列
     media_list_buttons = new QButtonGroup(media_list_context); // 媒体列表按钮组
-    DPushButton *b = new DPushButton(QString("addone"),media_list_context);
-    b->setFixedHeight(50);
-    b->setFixedWidth(180);
-    b->setCheckable(true);
-    b->setIcon(b->style()->standardIcon(DStyle::SP_ComputerIcon));
-    ct->openMedia("/home/xiaojiang/Desktop/hh.mp4");
-    connect(b,&DPushButton::clicked,[=](){
-        // PageData data = PageData{"新页面","Content",QUrl(""),"",Box};
-        // addMediaPage(data);
-        ct->play();
-    });
-    
-    media_list_buttons->addButton(b);
-    media_list_context_layout->addWidget(b);
-    for (PageData data : page_data)
-    {
-        addMediaPage(data);
-    }
+    connect(media_list_buttons, static_cast<void(QButtonGroup::*)(QAbstractButton*)>(&QButtonGroup::buttonClicked),
+            this, &Sparkplayer::setMainPage);
+    // DPushButton *b = new DPushButton(QString("addone"),media_list_context);
+    // b->setFixedHeight(50);
+    // b->setFixedWidth(180);
+    // b->setCheckable(true);
+    // b->setIcon(b->style()->standardIcon(DStyle::SP_ComputerIcon));
+    // media_list_buttons->addButton(b);
+    // media_list_context_layout->addWidget(b);
 
     //QSpacerItem *s =new  QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding); // 弹簧
     media_list->setWidget(media_list_context);
     
-    //右侧区域
+
+
+    // 右侧区域
     main_box = new DWidget(centralWidget()); // 右侧主窗口
     main_box_layout = new QVBoxLayout(main_box); // 主窗口纵向布局器
     main_box_layout->setContentsMargins(0,0,0,0);
@@ -97,6 +92,7 @@ void Sparkplayer::setupUI()
     up_layout->addWidget(main_box);
     centralwidget_layout->addLayout(up_layout); // 添加到上半部分的布局器中
     //setMainPage(PageData()); // 设置主页面
+
 
     // 下半控制部分
     controlers = new DWidget(centralWidget()); // 控制部分容器
@@ -111,6 +107,7 @@ void Sparkplayer::setupUI()
 
     QHBoxLayout *controler_box_layout = new QHBoxLayout(); // 控制器横排布局器
     controler_box_layout->setSpacing(10);
+    controler_box_layout->setAlignment(Qt::AlignCenter);
     controlers_layout->addItem(controler_box_layout);
 
     play_button = new DPushButton(controlers); // 初始化播放按钮
@@ -120,6 +117,33 @@ void Sparkplayer::setupUI()
     play_button->setStyleSheet(".QPushButton{background-color:rgb(100, 180, 255); border-radius: 20px;}\
                                 .QPushButton:hover{background-color:rgb(74, 143, 207); border-radius: 20px;}\
                                 .QPushButton:pressed{background-color:rgb(117, 163, 206); border-radius: 20px;}");
+    connect(play_button,&DPushButton::clicked,[=](){
+        // PageData data = PageData{"新页面","Content",QUrl(""),"",Box};
+        // addMediaPage(data);
+        if (!media_controler->getStatus())
+        {
+            media_controler->play();
+            if (media_controler->getStatus()) 
+                play_button->setIcon(play_button->style()->standardIcon(DStyle::SP_MediaPause));
+        } else {
+            media_controler->pause();
+            if (!media_controler->getStatus()) 
+                play_button->setIcon(play_button->style()->standardIcon(DStyle::SP_MediaPlay));
+        }
+        
+    });
+    connect(media_controler,&SparkMediaControler::onStatusChange,[=](){
+        // PageData data = PageData{"新页面","Content",QUrl(""),"",Box};
+        // addMediaPage(data);
+        if (!media_controler->getStatus())
+        {
+            play_button->setIcon(play_button->style()->standardIcon(DStyle::SP_MediaPause));
+        } else
+        {
+            play_button->setIcon(play_button->style()->standardIcon(DStyle::SP_MediaPlay));
+        }
+        
+    });
     previous_play = new DPushButton(controlers); // 初始化上一个按钮
     previous_play->setIcon(previous_play->style()->standardIcon(DStyle::SP_MediaSeekBackward));
     previous_play->setIconSize(QSize(40,40));
@@ -127,6 +151,9 @@ void Sparkplayer::setupUI()
     previous_play->setStyleSheet(".QPushButton{background-color:rgba(196, 189, 189, 0); border-radius: 20px;}\
                                 .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 20px;}\
                                 .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 20px;}");
+    connect(previous_play,&DPushButton::clicked,[=](){
+        media_controler->setSeekTime(0.0);
+    });
     next_play = new DPushButton(controlers); // 初始化下一个按钮
     next_play->setIcon(next_play->style()->standardIcon(DStyle::SP_MediaSeekForward));
     next_play->setIconSize(QSize(40,40));
@@ -134,16 +161,20 @@ void Sparkplayer::setupUI()
     next_play->setStyleSheet(".QPushButton{background-color:rgba(196, 189, 189, 0); border-radius: 20px;}\
                                 .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 20px;}\
                                 .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 20px;}");
+    connect(next_play,&DPushButton::clicked,[=](){
+        title_bar->setHide(true);
+    });
     
-    controler_box_layout->addItem(new QSpacerItem(20, 40, QSizePolicy::Expanding, QSizePolicy::Minimum)); // 弹簧
+    //controler_box_layout->addItem(new QSpacerItem(20, 40, QSizePolicy::Expanding, QSizePolicy::Minimum)); // 弹簧
     controler_box_layout->addWidget(previous_play);
     controler_box_layout->addWidget(play_button);
     controler_box_layout->addWidget(next_play);
-    controler_box_layout->addItem(new QSpacerItem(20, 40, QSizePolicy::Expanding, QSizePolicy::Minimum)); // 弹簧
+    //controler_box_layout->addItem(new QSpacerItem(20, 40, QSizePolicy::Expanding, QSizePolicy::Minimum)); // 弹簧
 
     test = new DLabel(this);
     test->move(100,0);
-    test->setFixedSize(1920,1080);
+    test->setFixedSize(960,540);
+    test->resize(960,540);
     title_bar->raise(); // 置顶 titlebar
 }
 
@@ -154,35 +185,60 @@ void Sparkplayer::resizeEvent(QResizeEvent *event)
 
 }
 
-void Sparkplayer::addMediaPage(PageData data)
+void Sparkplayer::reloadMediaPage()
 {
-    DPushButton *b = new DPushButton(QString("%1").arg(data.title),media_list_context);
-    b->setFixedHeight(50);
-    b->setFixedWidth(180);
-    b->setCheckable(true);
-    b->setIcon(b->style()->standardIcon(DStyle::SP_ComputerIcon));
-    connect(b,&DPushButton::clicked,[=](){
-        qDebug() << "switch to " << data.title;
-        setMainPage(data);
-    });
-    b->setStyleSheet(".QPushButton{background-color:rgba(196, 189, 189, 0); border-radius: 10px;}\
-                        .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}\
-                        .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}\
-                        .QPushButton:checked{background-color:rgb(100, 180, 255); border-radius: 10px;}");
-    media_list_buttons->addButton(b);
-    media_list_context_layout->addWidget(b);
+    int index = 0;
+    for(QList<PageData>::iterator data = page_data.begin();data < page_data.end();data++){
+        PageData *pdata = &(*data);
+        int i =media_list_buttons->buttons().size();
+        if (media_list_buttons->buttons().size()<=index) {
+            MediaListButton *b = new MediaListButton(QString("%1").arg(pdata->title),media_list_context);
+            b->setFixedHeight(50);
+            b->setFixedWidth(180);
+            b->setCheckable(true);
+            b->setIcon(Path::applicationPath("images/bg.png").toString());
+            b->setData(pdata);
+            b->setStyleSheet(".QPushButton{background-color:rgba(196, 189, 189, 0); border-radius: 10px;}\
+                                .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}\
+                                .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}\
+                                .QPushButton:checked{background-color:rgb(100, 180, 255); border-radius: 10px;}");
+            media_list_buttons->addButton(b);
+            media_list_context_layout->insertWidget(index,b);
+        }
+        MediaListButton *pButton = (MediaListButton *)(media_list_buttons->buttons()[index]);
+        PageData *d=pButton->getData();
+        if (pdata != pButton->getData())
+        {
+            pButton->setData(pdata);
+        }
+        index++;
+    }
+    
+}
+
+void Sparkplayer::addMediaPage(PageData data, int index)
+{
+    if (index < 0) {   
+        page_data.push_back(data);
+    } else {
+        QList<PageData>::iterator id = page_data.begin()+index;
+        page_data.insert(id,data);
+
+    }
+    
+    reloadMediaPage();
     qDebug() << "add page " << data.title;
 }
 
-void Sparkplayer::setMainPage(const PageData &data)
+void Sparkplayer::setMainPage(QAbstractButton *button)
 {
     if (main_page)
     {
-        layout()->removeWidget(main_page);
+        //layout()->removeWidget(main_page);
         main_page->deleteLater();
         main_page = nullptr;
     }
-    main_page = new MainPage(main_box,data);
+    main_page = new MainPage(main_box,((MediaListButton *)button)->getData());
     if (main_page)
     {
         main_box_layout->addWidget(main_page);
@@ -193,7 +249,7 @@ void Sparkplayer::setMainPage(const PageData &data)
 
 void Sparkplayer::showimg()
 {
-    test->setPixmap(QPixmap::fromImage(*(ct->getImg())));
+    test->setPixmap(QPixmap::fromImage(*(media_controler->getImg())));
 }
 
 void Sparkplayer::slotThemeTypeChanged(){

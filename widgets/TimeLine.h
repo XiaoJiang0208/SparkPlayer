@@ -12,13 +12,16 @@ public:
     explicit TimeLine(Qt::Orientation orientation = Qt::Horizontal, QWidget *parent = nullptr);
     QSlider *main_slider;
     
+    void setMaxTime(double time);
+    void setTime(double time);
+
 private:
     DLabel * left_time;
     DLabel * right_time;
 
+    double max_time;
 public slots:
     void slotThemeTypeChanged();
-
 signals:
 
 };

@@ -15,6 +15,7 @@ public:
     //ImageTools(/* args */);
     //~ImageTools();
     static QPixmap toPixmap(const QString &url, QSize size = QSize(30,30), int radius = 0);
+    static QPixmap toPixmap(const QImage &raw, QSize size = QSize(30,30), int radius = 0);
 };
 
 #endif // IMAGETOOLS_H

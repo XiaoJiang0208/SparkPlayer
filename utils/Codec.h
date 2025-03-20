@@ -9,6 +9,7 @@ extern "C" {
 #include <libavutil/time.h>
 #include <libavutil/channel_layout.h>
 #include <libswresample/swresample.h>
+#include <libavutil/imgutils.h>
 }
 
 #include <thread>
@@ -28,7 +29,7 @@ struct OutVideoFrameSetting
 {
     int32_t width = 1920;
     int32_t height = 1080;
-    
+    AVPixelFormat pixelFormat = AV_PIX_FMT_RGB32;
 };
 
 struct OutAudioFrameSetting
@@ -100,6 +101,7 @@ private:
     
     double m_audDelay;
 
+    MediaType m_mediaType;
 public:
     Codec(/* args */);
     ~Codec();
@@ -122,9 +124,16 @@ public:
 
     int32_t getFinalVidFrame(uint8_t* data[1],int linesize[1]);
     int32_t getFinalAudFrame(uint8_t* data[1],int linesize[1]);
-
+    
     void setOutVideo(int width, int height);
     void setOutAudio(int sample_rate, int channel_count, int sample_fmt);
+
+    double getSeekTime();
+    void setSeekTime(double time);
+
+    MediaType getMediaType(){return m_mediaType;}
+
+    static int32_t getTitleImg(QString path, int width, int height,uint8_t* data[1],int linesize[1]);
 };
 
 

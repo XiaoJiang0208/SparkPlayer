@@ -1,11 +1,15 @@
 #ifndef MAINPAGE_H
 #define MAINPAGE_H
 
+#include <filesystem>
+
 #include "../include.h"
 //#include "ImageBox.h"
 #include "../utils/ImageTools.h"
 #include "../utils/Path.h"
+#include "MediaBox.h"
 
+namespace fs = std::filesystem;
 
 DWIDGET_USE_NAMESPACE
 
@@ -20,9 +24,10 @@ struct PageData
 {
     QString title = "MediaPage";
     QString content = "Content";
-    QUrl url = QUrl("");
+    QString path = "";
     QString time = "";
-    PageType type = Box;
+    PageType list_type = Box;
+    
 
 };
 
@@ -30,14 +35,14 @@ class MainPage : public DWidget
 {
     Q_OBJECT
 public:
-    MainPage(QWidget *parent = nullptr, const PageData &data = PageData());
+    MainPage(QWidget *parent = nullptr, PageData *data = nullptr);
     
 private:
 
-    PageData data; //页面数据
+    PageData *data; //页面数据
     
+    QList<fs::path> media_data_list;
 
-    void initUI(); //初始化页面
     DWidget *media_list_bar; //主要标题栏
     QHBoxLayout *media_list_bar_layout; //主要标题栏布局器
     DLabel *media_list_bar_title; //主要标题
@@ -47,6 +52,11 @@ private:
     DScrollArea *media_list; //媒体列表
     DWidget *media_list_context; //媒体列表容器
     QVBoxLayout *media_list_context_layout; //媒体列表布局器
+
+    QButtonGroup *media_box_list;
+
+    void initUI(); //初始化页面
+    void reloadMedia();
 
 public slots:
     void slotThemeTypeChanged();

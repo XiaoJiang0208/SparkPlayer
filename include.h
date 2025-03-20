@@ -27,5 +27,6 @@
 #include <QResizeEvent>
 #include <QString>
 #include <QUrl>
+#include <QPropertyAnimation>
 
 #endif // INCLUDE_H

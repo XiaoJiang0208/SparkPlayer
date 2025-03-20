@@ -24,6 +24,25 @@ TimeLine::TimeLine(Qt::Orientation orientation, QWidget *parent)
     slotThemeTypeChanged();
 }
 
+void TimeLine::setMaxTime(double time)
+{
+    max_time = time;
+    int h = (int)time/60/60;
+    int m = (int)time/60;
+    int s = (int)time%60;
+    right_time->setText((QString)h+":"+(QString)m+":"+(QString)s);
+    main_slider->setTickInterval(time);
+}
+
+void TimeLine::setTime(double time)
+{
+    time = time ? time < max_time : max_time;
+    int h = (int)time/60/60;
+    int m = (int)time/60;
+    int s = (int)time%60;
+    right_time->setText((QString)h+":"+(QString)m+":"+(QString)s);
+}
+
 void TimeLine::slotThemeTypeChanged(){
     main_slider->setStyleSheet("\
     .QSlider::groove:horizontal {\

@@ -56,6 +56,9 @@ else()
             widgets/MainPage.h widgets/MainPage.cpp
             widgets/FlowLayout.h widgets/FlowLayout.cpp
             widgets/ImageBox.h widgets/ImageBox.cpp
+            widgets/TitleBar.h widgets/TitleBar.cpp
+            widgets/MediaListButton.h widgets/MediaListButton.cpp
+            widgets/MediaBox.h widgets/MediaBox.cpp
             utils/ImageTools.h utils/ImageTools.cpp
             utils/Path.h utils/Path.cpp
             utils/Codec.h utils/Codec.cpp
