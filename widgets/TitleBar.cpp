@@ -2,6 +2,7 @@
 
 TitleBar::TitleBar(QWidget *parent):DTitlebar(parent)
 {
+    background = new QWidget(parent);
     this->setFixedHeight(50);
     this->setBackgroundTransparent(true);
     this->setIcon(this->style()->standardIcon(DStyle::SP_ComputerIcon));
@@ -30,6 +31,16 @@ void TitleBar::setHide(bool on)
 
 void TitleBar::raise()
 {
+    background->raise();
     DTitlebar::raise();
 }
 
+void TitleBar::setStyleSheet(const QString &styleSheet)
+{
+    background->setStyleSheet(styleSheet);
+}
+
+void TitleBar::resizeEvent(QResizeEvent *event)
+{
+    background->resize(this->size());
+}

@@ -48,6 +48,11 @@ fs::path MediaBox::getMediaPath()
     return media_path;
 }
 
+QSize MediaBox::getIconSize()
+{
+    return QSize((height()-10)/9*16,height()-10);
+}
+
 void MediaBox::nextCheckState()
 {
     QPushButton::nextCheckState();
@@ -59,3 +64,14 @@ void MediaBox::nextCheckState()
     }
 }
 
+void MediaBox::mousePressEvent(QMouseEvent *ev)
+{
+    if (ev->button() == Qt::LeftButton)
+    {
+        SparkMediaControler::getInstance()->pause();
+        SparkMediaControler::getInstance()->addMedia(media_path,1);
+        SparkMediaControler::getInstance()->nextMedia();
+        SparkMediaControler::getInstance()->play();
+        
+    }
+}

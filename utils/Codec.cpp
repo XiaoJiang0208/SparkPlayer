@@ -9,7 +9,8 @@ Codec::Codec(/* args */)
     m_audStreamIndex = -1;
     m_isDecoding = false;
     m_isEnd = false;
-    m_sync.InitClock();
+    overload = false;
+    qDebug() << av_version_info();
 }
 
 Codec::~Codec()
@@ -18,11 +19,17 @@ Codec::~Codec()
 }
 
 int32_t Codec::openFile(const char *path){
-
+    std::lock_guard<std::mutex> lock1(m_audPacketQueueMutex);
+    std::lock_guard<std::mutex> lock2(m_vidPacketQueueMutex);
+    m_sync.InitClock();
     const AVCodec *pVidCodec = nullptr; // 视频编解码器
     const AVCodec *pAudCodec = nullptr; // 音频编解码器
     int res = 0;
-
+    m_picStreamIndex = -1;
+    m_audStreamIndex = -1;
+    m_vidStreamIndex = -1;
+    m_picHeight = 0;
+    m_picWidth = 0;
     res = avformat_open_input(&m_pAvFormatCtx, path, nullptr, nullptr); // 打开文件
     if (m_pAvFormatCtx == nullptr)
     {
@@ -45,13 +52,25 @@ int32_t Codec::openFile(const char *path){
     
     // 打印媒体文件的详细信息
     av_dump_format(m_pAvFormatCtx, 0, NULL, 0);
-
+    m_mediaType = MediaType::audio;
     // 查找视频流
     for (uint32_t i = 0; i < m_pAvFormatCtx->nb_streams; i++)
     {
         AVStream *pAvStream = m_pAvFormatCtx->streams[i];
         if (pAvStream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
         {
+            if (pAvStream->disposition & AV_DISPOSITION_ATTACHED_PIC) {
+                m_picStreamIndex = i;
+                m_picHeight = pAvStream->codecpar->height;
+                m_picWidth = pAvStream->codecpar->width;
+                continue;
+            }
+            m_mediaType = MediaType::video;
+            
+            if (m_picStreamIndex < 0){
+                m_picHeight = pAvStream->codecpar->height;
+                m_picWidth = pAvStream->codecpar->width;
+            }           
             // 检查视频流的宽高
             if (pAvStream->codecpar->width <= 0 || pAvStream->codecpar->height <= 0)
             {
@@ -59,16 +78,8 @@ int32_t Codec::openFile(const char *path){
                 continue;
             }
             
-            // 查找视频解码器
-            pVidCodec = avcodec_find_decoder(pAvStream->codecpar->codec_id);
-            if (pVidCodec == nullptr)
-            {
-                qWarning() << "找不到适用于"<<pAvStream->codecpar->codec_id<<"的视频解码器";
-                closeFile();
-                continue;
-            }
-
-            m_vidStreamIndex = i;
+            // 初始化解码器
+            changeVideoStream(i);
             qInfo() <<"format:"<< pAvStream->codecpar->format << "width:"<< pAvStream->codecpar->width << "height:"<< pAvStream->codecpar->height;
         } else if (pAvStream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
         {
@@ -100,44 +111,6 @@ int32_t Codec::openFile(const char *path){
         return -1;
     }
 
-    if (pAudCodec)
-    {
-        m_mediaType = MediaType::audio;
-    }
-    
-    if (pVidCodec)
-    {
-        m_mediaType = MediaType::video;
-    }
-
-    // 打开视频解码器
-    if (pVidCodec != nullptr)
-    {
-        // 分配视频解码器上下文
-        m_pVidCodecCtx = avcodec_alloc_context3(pVidCodec);
-        if (m_pVidCodecCtx == nullptr)
-        {
-            qWarning() << "分配视频解码器上下文失败";
-            closeFile();
-            return -1;
-        }
-        // 设置视频解码器上下文参数
-        res = avcodec_parameters_to_context(m_pVidCodecCtx, m_pAvFormatCtx->streams[m_vidStreamIndex]->codecpar);
-        if (res < 0)
-        {
-            qWarning() << "设置视频解码器上下文参数失败";
-            closeFile();
-            return -1;
-        }
-        // 打开视频解码器
-        res = avcodec_open2(m_pVidCodecCtx, pVidCodec, nullptr);
-        if (res < 0)
-        {
-            qWarning() << "打开视频解码器失败";
-            closeFile();
-            return -1;
-        }
-    }
     if (pAudCodec != nullptr)
     {
         // 分配音频解码器上下文
@@ -170,6 +143,9 @@ int32_t Codec::openFile(const char *path){
 }
 
 void Codec::closeFile(){
+    std::lock_guard<std::mutex> lock(m_audPacketQueueMutex);
+    std::lock_guard<std::mutex> lock2(m_vidPacketQueueMutex);
+    std::lock_guard<std::mutex> lock3(m_avFormatCtxMutex);
     if (m_pAvFormatCtx != nullptr)
     {
         avformat_close_input(&m_pAvFormatCtx);
@@ -211,9 +187,51 @@ void Codec::closeFile(){
     
 }
 
-int32_t Codec::readPacket(){
-    int res = 0;
+int32_t Codec::changeVideoStream(int32_t i)
+{
+    AVStream *pAvStream = m_pAvFormatCtx->streams[i];
+    const AVCodec *pVidCodec = avcodec_find_decoder(pAvStream->codecpar->codec_id);
+    if (pVidCodec == nullptr)
+    {
+        qWarning() << "找不到适用于"<<pAvStream->codecpar->codec_id<<"的视频解码器";
+        return -1;
+    }
+    // 分配视频解码器上下文
+    AVCodecContext* pVidCodecCtx = avcodec_alloc_context3(pVidCodec);
+    if (pVidCodecCtx == nullptr)
+    {
+        qWarning() << "分配视频解码器上下文失败";
+        return -1;
+    }
+    // 设置视频解码器上下文参数
+    int res = avcodec_parameters_to_context(pVidCodecCtx, pAvStream->codecpar);
+    if (res < 0)
+    {
+        qWarning() << "设置视频解码器上下文参数失败";
+        avcodec_free_context(&pVidCodecCtx);
+        return -1;
+    }
+    // 打开视频解码器
+    res = avcodec_open2(pVidCodecCtx, pVidCodec, nullptr);
+    if (res < 0)
+    {
+        qWarning() << "打开视频解码器失败";
+        avcodec_free_context(&pVidCodecCtx);
+        return -1;
+    }
+    m_vidStreamIndex = i;
+    m_pVidCodecCtx = pVidCodecCtx;
+}
 
+void Codec::changeAudioStream(int32_t i)
+{
+    // TODO 音频流切换
+}
+
+int32_t Codec::readPacket(){
+    std::lock_guard<std::mutex> lock(m_avFormatCtxMutex);    
+    
+    int res = 0;
 
     AVPacket *pPacket = av_packet_alloc();
 
@@ -240,8 +258,10 @@ int32_t Codec::readPacket(){
     return res;
 }
 
-int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue)
+int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue, int stream_index)
 {
+
+    
     if (packetQueue.empty())
     {
         return -1;
@@ -250,20 +270,9 @@ int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue)
     AVPacket *pPacket = packetQueue.front();
     AVFrame *pOutFrame = nullptr;
     int res = 0;
-
-    if (pPacket->stream_index == m_vidStreamIndex) // 视频
+    
+    if (stream_index == m_vidStreamIndex) // 视频
     {
-        // 将pts转换为秒数，假设m_vidTimeBase为视频time_base
-        double videoPts = pPacket->pts * av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base);
-        // 计算与音频主时钟的差值
-        double delay = videoPts - m_sync.getClock();
-        if (delay < -1.0) {
-            qDebug()<<"nonono"<<delay;
-            av_packet_free(&pPacket);
-            packetQueue.pop();
-            return -1;
-        }
-
         res = decodePacketToFrame(m_pVidCodecCtx, pPacket, &pOutFrame);
         if (res || pOutFrame==nullptr){
             av_packet_free(&pPacket);
@@ -272,10 +281,27 @@ int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue)
         }
 
         // 将pts转换为秒数，假设m_vidTimeBase为视频time_base
-        videoPts = pOutFrame->pts * av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base);
+        double videoPts = pOutFrame->pts * av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base);
         // 计算与音频主时钟的差值
-        delay = videoPts - m_sync.getClock();
-
+        double delay = videoPts - m_sync.getClock();
+        if (delay < -1.0) {
+            overload = true;
+            qDebug()<<"nonono"<<delay;
+            av_frame_free(&pOutFrame);
+            av_packet_free(&pPacket);
+            packetQueue.pop();
+            while (!packetQueue.empty())
+            {
+                pPacket = packetQueue.front();
+                if (pPacket->flags & AV_PKT_FLAG_KEY) {
+                    break;
+                }
+                av_packet_free(&packetQueue.front());
+                packetQueue.pop();
+            }
+            
+            return -1;
+        }
         if (delay > 1.0)
         {
             if (delay >1.0) qDebug()<<"fix!!!!";
@@ -293,25 +319,26 @@ int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue)
         }
 
         m_vidBuffer.push(pOutFrame);
-        av_packet_free(&pPacket);
+        if (pPacket) av_packet_free(&pPacket);
         packetQueue.pop();
+        overload = false;
         return 0;
 
-    } else if (pPacket->stream_index == m_audStreamIndex) //音频
+    } else if (stream_index == m_audStreamIndex) //音频
     {
         if (m_audBuffer.size()>2){
             return 0;
         }
         res = decodePacketToFrame(m_pAudCodecCtx, pPacket, &pOutFrame);
         if (pOutFrame == nullptr){
-            av_packet_free(&pPacket);
+            if (pPacket) av_packet_free(&pPacket);
             packetQueue.pop();
             return res;
         }
-
+        
         
         m_audBuffer.push(pOutFrame);
-        av_packet_free(&pPacket);
+        if (pPacket) av_packet_free(&pPacket);
         packetQueue.pop();
 
         return 0;
@@ -370,14 +397,20 @@ int32_t Codec::decodePacketToFrame(AVCodecContext *pCodecCtx, const AVPacket *pP
 int32_t Codec::videoFrameConvert(const AVFrame *pInFrame, OutVideoFrameSetting &settings , uint8_t* data[1],int linesize[1])
 {
     // 计算缩放比例（等比例缩放，使得图像能完整显示在目标画布内）
-    double ratioWidth = (double)settings.width / pInFrame->width;
-    double ratioHeight = (double)settings.height / pInFrame->height;
+    int width = settings.width;
+    int height = settings.height;
+    if (settings.width <= 0 ||settings.height <= 0){
+        width = pInFrame->width;
+        height = pInFrame->height;
+    }
+    double ratioWidth = (double)width / pInFrame->width;
+    double ratioHeight = (double)height / pInFrame->height;
     double ratio = std::min(ratioWidth, ratioHeight);
 
     int newWidth = static_cast<int>(pInFrame->width * ratio);
     int newHeight = static_cast<int>(pInFrame->height * ratio);
-    int xOffset = (settings.width - newWidth) / 2;
-    int yOffset = (settings.height - newHeight) / 2;
+    int xOffset = (width - newWidth) / 2; 
+    int yOffset = (height - newHeight) / 2;
 
     // 确保输出缓冲区已分配并足够大，这里采用 RGB32，每个像素4字节
     // 如果输出内存未分配，则需先分配内存
@@ -389,9 +422,10 @@ int32_t Codec::videoFrameConvert(const AVFrame *pInFrame, OutVideoFrameSetting &
     }
     int bytesPerPixel = av_get_bits_per_pixel(desc) / 8;
 
+    
     // 填充目标画布为黑色背景
-    for (int y = 0; y < settings.height; y++) {
-        memset(data[0] + y * linesize[0], 0, settings.width * bytesPerPixel);
+    for (int y = 0; y < height; y++) {
+        memset(data[0] + y * linesize[0], 0, width * bytesPerPixel);
     }
 
     // 为缩放后的图像分配临时缓冲区
@@ -438,7 +472,6 @@ int32_t Codec::videoFrameConvert(const AVFrame *pInFrame, OutVideoFrameSetting &
 
 int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &settings, uint8_t *data[1], int linesize[1])
 {
-    int res = 0;
     if (!pInFrame) {
         qWarning() << "pInFrame is null";
         return -1;
@@ -455,7 +488,6 @@ int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &
     AVChannelLayout out_ch_layout;
     av_channel_layout_default(&out_ch_layout, settings.channel_count);
     
-
     // 根据采样位深选择输出采样格式
     AVSampleFormat out_format = AV_SAMPLE_FMT_NONE;
     switch (settings.sample_fmt) {
@@ -483,18 +515,18 @@ int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &
         swr_free(&pSwrCtx);
         return -1;
     }
-
-    // 这里假设输入的 AVFrame 已设置好声道布局和采样格式
-    // 使用输入 pInFrame->ch_layout 及 pInFrame->format，采样率为 pInFrame->sample_rate
-    res = swr_alloc_set_opts2(&pSwrCtx,
-                              &out_ch_layout,    // 输出声道布局
-                              out_format,        // 输出采样格式（转换为packed格式）
-                              settings.sample_rate, // 输出采样率
-                              &(pInFrame->ch_layout), // 输入声道布局
-                              (AVSampleFormat)pInFrame->format, // 输入采样格式
-                              pInFrame->sample_rate, // 输入采样率
-                              0,
-                              nullptr);
+    
+    // 配置重采样参数
+    int res = swr_alloc_set_opts2(&pSwrCtx,
+                                  &out_ch_layout,                  // 输出声道布局
+                                  out_format,                      // 输出采样格式
+                                  settings.sample_rate,            // 输出采样率
+                                  &(pInFrame->ch_layout),    // 输入声道布局
+                                  AVSampleFormat(pInFrame->format),      // 输入采样格式
+                                  pInFrame->sample_rate,     // 输入采样率
+                                  0,
+                                  nullptr);
+    
     if (res < 0) {
         qWarning() << "配置重采样上下文失败:" << res;
         swr_free(&pSwrCtx);
@@ -508,48 +540,46 @@ int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &
         return res;
     }
 
-    // 计算输出采样点数：延时加上输入采样点数
     int in_samples = pInFrame->nb_samples;
-    //int64_t delay = swr_get_delay(pSwrCtx, pInFrame->sample_rate);
-    int out_samples = swr_get_out_samples(pSwrCtx,pInFrame->nb_samples);
 
-    // 获取通道数（通常可直接使用 pInFrame->ch_layout.nb_channels）
-    int nb_channels = pInFrame->ch_layout.nb_channels;
-    // 计算目标缓冲区大小
-    int buffer_size = av_samples_get_buffer_size(nullptr, nb_channels,
-                                                 out_samples, out_format, 0);
-    if (buffer_size < 0) {
-        qWarning() << "计算缓冲区大小失败";
+    // 计算重采样延时并根据采样率比例重算输出采样点数
+    int64_t delay = swr_get_delay(pSwrCtx, pInFrame->sample_rate);
+    int out_samples = av_rescale_rnd(delay + in_samples,
+                                     settings.sample_rate,
+                                     pInFrame->sample_rate,
+                                     AV_ROUND_UP);
+
+    // 分配输出缓冲区
+    res = av_samples_alloc(data, linesize, out_ch_layout.nb_channels,
+                           out_samples, out_format, 0);
+    if (res < 0) {
+        qWarning() << "分配缓冲区失败";
         swr_free(&pSwrCtx);
         return -1;
     }
-
-    if (data[0]!=NULL){
-        delete [] data[0];
-    }
-    // 分配缓冲区并执行重采样
-    data[0] = new uint8_t[buffer_size];
+    
+    // 执行重采样转换
     int converted_samples = swr_convert(pSwrCtx, data, out_samples,
                                         pInFrame->data, in_samples);
     if (converted_samples < 0) {
         qWarning() << "重采样转换失败:" << converted_samples;
         swr_free(&pSwrCtx);
-        delete[] data[0];
+        av_freep(&data[0]);
         return -1;
     }
 
-    // 根据实际转换后的采样数重新计算输出数据大小
-    linesize[0] = av_samples_get_buffer_size(nullptr, nb_channels, converted_samples,
-                                             out_format, 0);
+    // 可选：重新计算输出数据大小
+    linesize[0] = av_samples_get_buffer_size(nullptr, out_ch_layout.nb_channels,
+                                             converted_samples, out_format, 0);
     if (linesize[0] < 0) {
-        qWarning() << "重新计算输出缓冲区大小失败";
+        qWarning() << "计算输出缓冲区大小失败";
         swr_free(&pSwrCtx);
-        delete[] data[0];
+        av_freep(&data[0]);
         return -1;
     }
 
     swr_free(&pSwrCtx);
-    return 0;
+    return converted_samples;
 }
 
 void Codec::threadReadPacket()
@@ -557,24 +587,26 @@ void Codec::threadReadPacket()
     qDebug()<<"readin";
     while (m_isDecoding)
     {
-        if (m_audPacketQueue.empty() || m_vidPacketQueue.empty())
+        if (m_audPacketQueue.empty() || (m_vidPacketQueue.empty() && m_mediaType == video))
         {
-            if (readPacket()==AVERROR_EOF && m_audPacketQueue.empty() && m_vidPacketQueue.empty()){
+            if (readPacket()==AVERROR_EOF && m_audPacketQueue.empty() && (m_mediaType == audio || m_vidPacketQueue.empty())){
                 
                 m_isDecoding = false;
                 m_isEnd = true;
             }
         }
+        //qDebug()<<m_sync.getClock();
     }
     qDebug()<<"readout";
 }
 
 void Codec::threadDecodeVideo()
 {
+    std::lock_guard<std::mutex> lock(m_vidPacketQueueMutex);
     qDebug()<<"vidin";
     while (m_isDecoding)
     {
-        packetDecoder(m_vidPacketQueue);
+        packetDecoder(m_vidPacketQueue,m_vidStreamIndex);
     }
     qDebug()<<"vidout";
     
@@ -582,10 +614,11 @@ void Codec::threadDecodeVideo()
 
 void Codec::threadDecodeAudio()
 {
+    std::lock_guard<std::mutex> lock(m_audPacketQueueMutex);
     qDebug()<<"audin";
     while (m_isDecoding)
     {
-        packetDecoder(m_audPacketQueue);
+        packetDecoder(m_audPacketQueue,m_audStreamIndex);
     }
     qDebug()<<"audout";
     
@@ -602,17 +635,18 @@ void Codec::startDecoding()
     m_isDecoding = true;
     m_isEnd = false;
     std::thread tRead(&Codec::threadReadPacket,this);
-    std::thread tVideo(&Codec::threadDecodeVideo,this);
-    std::thread tAudio(&Codec::threadDecodeAudio,this);
-    
     if (tRead.joinable())
     {
         tRead.detach();
     }
-    if (tVideo.joinable())
-    {
-        tVideo.detach();
+    if (m_mediaType == video) {
+        std::thread tVideo(&Codec::threadDecodeVideo,this);
+        if ( tVideo.joinable())
+        {
+            tVideo.detach();
+        }
     }
+    std::thread tAudio(&Codec::threadDecodeAudio,this);
     if (tAudio.joinable())
     {
         tAudio.detach();
@@ -662,11 +696,57 @@ void Codec::setOutVideo(int width, int height)
 
 }
 
+OutVideoFrameSetting Codec::getOutVideoSettings()
+{
+    return m_outVidSetting;
+}
+
+OutVideoFrameSetting Codec::getRawVideoSettings()
+{
+    OutVideoFrameSetting rt = {m_pAvFormatCtx->streams[m_vidStreamIndex]->codecpar->width,
+                                m_pAvFormatCtx->streams[m_vidStreamIndex]->codecpar->height,
+                                static_cast<AVPixelFormat>(m_pAvFormatCtx->streams[m_vidStreamIndex]->codecpar->format)};
+    return rt;
+}
+
 void Codec::setOutAudio(int sample_rate, int channel_count, int sample_fmt)
 {
     m_outAudSetting.sample_rate=sample_rate;
     m_outAudSetting.channel_count=channel_count;
     m_outAudSetting.sample_fmt=sample_fmt;
+}
+
+OutAudioFrameSetting Codec::getOutAudioSettings()
+{
+    return m_outAudSetting;
+}
+
+OutAudioFrameSetting Codec::getRawAudioSettings()
+{
+    return OutAudioFrameSetting();
+}
+
+int Codec::getAudioSamples()
+{
+    switch (m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->codec_id)
+    {
+    case AV_CODEC_ID_AAC:
+        return 1024;
+        break;
+    case AV_CODEC_ID_AC3:
+        return 1536;
+        break;
+    case AV_CODEC_ID_DTS:
+        return 1024;
+        break;
+    case AV_CODEC_ID_MP3:
+        return 1152;
+        break;
+    
+    default:
+        return 1024;
+        break;
+    }
 }
 
 double Codec::getSeekTime()
@@ -676,35 +756,100 @@ double Codec::getSeekTime()
 
 void Codec::setSeekTime(double time)
 {
+    // TODO 修复音频包堆积问题
+    std::lock_guard<std::mutex> lock(m_audPacketQueueMutex);
+    std::lock_guard<std::mutex> lock2(m_vidPacketQueueMutex);
+    std::lock_guard<std::mutex> lock3(m_avFormatCtxMutex);
+
     if (!m_pAvFormatCtx || m_audStreamIndex < 0) {
         qWarning() << "无效的格式上下文或音频流索引";
         return;
     }
     int64_t pts = time / av_q2d(m_pAvFormatCtx->streams[m_audStreamIndex]->time_base);
-    av_seek_frame(m_pAvFormatCtx,m_audStreamIndex,pts,AVSEEK_FLAG_BACKWARD);
-    m_sync.setClock(pts);
+    int res = av_seek_frame(m_pAvFormatCtx,m_audStreamIndex,pts,AVSEEK_FLAG_BACKWARD);
     //pts = time / av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base);
-    //av_seek_frame(m_pAvFormatCtx,m_vidStreamIndex,pts,AVSEEK_FLAG_BACKWARD);
-
+    //res = av_seek_frame(m_pAvFormatCtx,m_vidStreamIndex,pts,AVSEEK_FLAG_BACKWARD);
+    while (!m_audPacketQueue.empty())
+    {
+        av_packet_free(&(m_audPacketQueue.front()));
+        m_audPacketQueue.pop();
+    }
+    while (!m_vidPacketQueue.empty())
+    {
+        av_packet_free(&(m_vidPacketQueue.front()));
+        m_vidPacketQueue.pop();
+    }
+    
+    if (res < 0)
+    {
+        qWarning() << "seek失败";
+        return;
+    }
+    
+    m_sync.setClock(pts);
+    
 }
 
-int32_t Codec::getTitleImg(QString path, int width, int height, uint8_t *data[1], int linesize[1])
+double Codec::getTime()
+{
+    //获取视频时长
+    return m_pAvFormatCtx->duration / AV_TIME_BASE;
+}
+
+int32_t Codec::getTitleImgHeight(fs::path path)
+{
+    Codec codec;
+    codec.openFile(path.c_str());
+    int32_t h = codec.m_picHeight;
+    codec.closeFile();
+    return h;
+}
+
+int32_t Codec::getTitleImgWidth(fs::path path)
+{
+    Codec codec;
+    codec.openFile(path.c_str());
+    int32_t w = codec.m_picWidth;
+    codec.closeFile();
+    return w;
+}
+
+int32_t Codec::getTitleImg(fs::path path, int width, int height, uint8_t *data[1], int linesize[1])
 {
     int32_t res;
     Codec codec;
-    res = codec.openFile(path.toStdString().c_str());
+    res = codec.openFile(path.c_str());
     if (res) return res;
 
-    if (codec.getMediaType()==MediaType::video)
+    if (codec.m_picStreamIndex>0)
     {
+        codec.changeVideoStream(codec.m_picStreamIndex);
+        codec.setOutVideo(width,height);
         do
         {
             codec.readPacket();
-            res = codec.packetDecoder(codec.m_vidPacketQueue);
-        } while (res = -11);
-        if (res) return res;
+            res = codec.packetDecoder(codec.m_vidPacketQueue,codec.m_vidStreamIndex);
+            if (res == AVERROR_EOF) break;
+        } while (codec.getFinalVidFrame(data,linesize) < 0);
+        codec.closeFile();
+        return res;
+    } 
+    else if (codec.m_mediaType == video)
+    {
         codec.setOutVideo(width,height);
-        return codec.getFinalVidFrame(data,linesize);
+        do
+        {
+            codec.readPacket();
+            res = codec.packetDecoder(codec.m_vidPacketQueue,codec.m_vidStreamIndex);
+            if (res == AVERROR_EOF) break;
+        } while (codec.getFinalVidFrame(data,linesize) < 0);
+        codec.closeFile();
+        return res;
+    } 
+    else {
+        codec.closeFile();
+        return -1;
     }
+    
     
 }

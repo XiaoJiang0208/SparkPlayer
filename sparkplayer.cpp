@@ -1,21 +1,27 @@
 #include "sparkplayer.h"
 //#include "./ui_sparkplayer.h"
 
+SparkMediaControler* Sparkplayer::media_controler = nullptr;
+
 Sparkplayer::Sparkplayer()
     : DMainWindow()
 {
     main_page = nullptr;
-    media_controler = new SparkMediaControler();
-    media_controler->reSize(960,540);
+    media_controler = SparkMediaControler::getInstance();
+    //media_controler->setVideoSize(0,0);
     setupUI();
+
     connect(DGuiApplicationHelper::instance(), &DGuiApplicationHelper::themeTypeChanged, this, &Sparkplayer::slotThemeTypeChanged);
-    connect(media_controler,&SparkMediaControler::onImageDone,this,&Sparkplayer::showimg);
+    //connect(media_controler,&SparkMediaControler::onImageDone,this,&Sparkplayer::showimg);
+    connect(video_box,&VideoBox::onFullscreen,this,&Sparkplayer::slotFullscreen);
+    connect(fullscreen_button,&DPushButton::clicked,[&](){video_box->fullscreen(false);});
+    
     slotThemeTypeChanged();
-    media_controler->openMedia("/home/xiaojiang/Desktop/ttt/1.mp4");
+
 
     addMediaPage(PageData{"主页","shit","","",Box},-1);
-    addMediaPage(PageData{"音乐","Content2","~/Music","",Box},-1);
-    addMediaPage(PageData{"视屏","Content3","/home/xiaojiang/Desktop/ttt","",Box},-1);
+    addMediaPage(PageData{"音乐","Content2","/home/"+QString(std::getenv("USER"))+"/Music","",Box},-1);
+    addMediaPage(PageData{"视频","Content3","/home/"+QString(std::getenv("USER"))+"/Videos","",Box},-1);
 }
 
 Sparkplayer::~Sparkplayer()
@@ -33,7 +39,7 @@ void Sparkplayer::setupUI()
     title_bar = new TitleBar(this);
     //title_bar->setTitle("ttt");
     setTitlebarShadowEnabled(false); // 取消标题栏阴影
-    setMinimumSize(480,270); // 长宽比使用16:9适应大部分视屏比例
+    setMinimumSize(480,270); // 长宽比使用16:9适应大部分视频比例
     resize(960,540);
     // 得手动整一个centralWidget有点无语
     DWidget *centralwidget = new DWidget(this); // 中央容器
@@ -44,7 +50,6 @@ void Sparkplayer::setupUI()
     layout()->setMargin(0);
     setCentralWidget(centralwidget);
     titlebar()->setDisableFlags(Qt::WindowMinimizeButtonHint);
-
 
     // 上半部分布局器
     QHBoxLayout *up_layout = new QHBoxLayout();
@@ -94,13 +99,17 @@ void Sparkplayer::setupUI()
     //setMainPage(PageData()); // 设置主页面
 
 
-    // 下半控制部分
-    controlers = new DWidget(centralWidget()); // 控制部分容器
+    // 下半控制部分------
+    bottom = new DWidget(centralWidget());
+    bottom->setFixedHeight(80);
+    centralwidget_layout->addWidget(bottom);
+    controlers = new DWidget(this); // 控制部分容器
     controlers->setFixedHeight(80);
+    controlers->setFixedWidth(width());
+    controlers->move(0,height()-80);
     QVBoxLayout *controlers_layout = new QVBoxLayout(controlers); // 控制器竖列布局器
     controlers_layout->setContentsMargins(0,0,0,20);
     controlers_layout->setSpacing(0);
-    centralwidget_layout->addWidget(controlers);
 
     time_line = new TimeLine(Qt::Horizontal,controlers); // 初始化时间线
     controlers_layout->addWidget(time_line);
@@ -123,12 +132,8 @@ void Sparkplayer::setupUI()
         if (!media_controler->getStatus())
         {
             media_controler->play();
-            if (media_controler->getStatus()) 
-                play_button->setIcon(play_button->style()->standardIcon(DStyle::SP_MediaPause));
         } else {
             media_controler->pause();
-            if (!media_controler->getStatus()) 
-                play_button->setIcon(play_button->style()->standardIcon(DStyle::SP_MediaPlay));
         }
         
     });
@@ -137,10 +142,10 @@ void Sparkplayer::setupUI()
         // addMediaPage(data);
         if (!media_controler->getStatus())
         {
-            play_button->setIcon(play_button->style()->standardIcon(DStyle::SP_MediaPause));
+            play_button->setIcon(play_button->style()->standardIcon(DStyle::SP_MediaPlay));
         } else
         {
-            play_button->setIcon(play_button->style()->standardIcon(DStyle::SP_MediaPlay));
+            play_button->setIcon(play_button->style()->standardIcon(DStyle::SP_MediaPause));
         }
         
     });
@@ -152,7 +157,7 @@ void Sparkplayer::setupUI()
                                 .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 20px;}\
                                 .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 20px;}");
     connect(previous_play,&DPushButton::clicked,[=](){
-        media_controler->setSeekTime(0.0);
+        media_controler->previousmedia();
     });
     next_play = new DPushButton(controlers); // 初始化下一个按钮
     next_play->setIcon(next_play->style()->standardIcon(DStyle::SP_MediaSeekForward));
@@ -162,27 +167,33 @@ void Sparkplayer::setupUI()
                                 .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 20px;}\
                                 .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 20px;}");
     connect(next_play,&DPushButton::clicked,[=](){
-        title_bar->setHide(true);
+        media_controler->nextMedia();
     });
-    
-    //controler_box_layout->addItem(new QSpacerItem(20, 40, QSizePolicy::Expanding, QSizePolicy::Minimum)); // 弹簧
     controler_box_layout->addWidget(previous_play);
     controler_box_layout->addWidget(play_button);
     controler_box_layout->addWidget(next_play);
-    //controler_box_layout->addItem(new QSpacerItem(20, 40, QSizePolicy::Expanding, QSizePolicy::Minimum)); // 弹簧
 
-    test = new DLabel(this);
-    test->move(100,0);
-    test->setFixedSize(960,540);
-    test->resize(960,540);
+    fullscreen_button = new DPushButton("小窗",controlers); // 初始化全屏按钮
+    fullscreen_button->setFixedSize(90,50);
+    fullscreen_button->move(10,80-50-5);
+    fullscreen_button->setStyleSheet(".QPushButton{background-color:rgba(165, 165, 165, 0.1); border-radius: 10px;}\
+                                .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}\
+                                .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}");
+    
     title_bar->raise(); // 置顶 titlebar
+    controlers->raise(); // 置顶 controlers
+
+    video_box = new VideoBox(this);
+    video_box->raise();
 }
 
 void Sparkplayer::resizeEvent(QResizeEvent *event)
 {
     DMainWindow::resizeEvent(event);
     title_bar->setFixedWidth(event->size().width());
-
+    video_box->resizeEvent();
+    controlers->setFixedWidth(width());
+    controlers->move(0,height()-80);
 }
 
 void Sparkplayer::reloadMediaPage()
@@ -247,9 +258,35 @@ void Sparkplayer::setMainPage(QAbstractButton *button)
     
 }
 
-void Sparkplayer::showimg()
+void Sparkplayer::hideControlers(bool t)
 {
-    test->setPixmap(QPixmap::fromImage(*(media_controler->getImg())));
+    QPropertyAnimation *animation = new QPropertyAnimation(controlers,"geometry");
+    animation->setDuration(300);
+    if (t)
+    {
+        animation->setStartValue(controlers->geometry());
+        animation->setEndValue(QRect(0,height()-80,controlers->width(),80));
+    } else {
+        animation->setStartValue(controlers->geometry());
+        animation->setEndValue(QRect(0,height(),controlers->width(),80));
+    }
+    animation->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void Sparkplayer::slotFullscreen(bool t)
+{
+    if (t)
+    {
+        title_bar->raise();
+        title_bar->setStyleSheet(".QWidget{background-color:rgba(255, 255, 255, 0.2);}");
+        controlers->raise();
+        controlers->setStyleSheet(".QWidget{background-color:rgba(255, 255, 255, 0.2);}");
+    } else {
+        video_box->raise();
+        controlers->setStyleSheet(".QWidget{background-color:rgba(255, 255, 255, 0);}");
+        title_bar->setStyleSheet(".QWidget{background-color:rgba(0, 0, 0, 0);}");
+    }
+    
 }
 
 void Sparkplayer::slotThemeTypeChanged(){
@@ -267,7 +304,7 @@ void Sparkplayer::slotThemeTypeChanged(){
         media_list_context->setStyleSheet(".QWidget{background-color: #f0f3f6;}");
         media_list->setStyleSheet(".QScrollArea{background-color: #f0f3f6;border-style: none;}");
         main_box->setStyleSheet(".QWidget{background-color: #f7f9fc;}");
-        controlers->setStyleSheet(".QWidget{background-color: #fafafa;}");
+        bottom->setStyleSheet(".QWidget{background-color: #fafafa;}");
 
 
     } else {
@@ -275,7 +312,7 @@ void Sparkplayer::slotThemeTypeChanged(){
         media_list_context->setStyleSheet(".QWidget{background-color: #1a1a21;}");
         media_list->setStyleSheet(".QScrollArea{background-color: #1a1a21;border-style: none;}");
         main_box->setStyleSheet(".QWidget{background-color: #13131a;}");
-        controlers->setStyleSheet(".QWidget{background-color: #2d2d38;}");
+        bottom->setStyleSheet(".QWidget{background-color: #2d2d38;}");
 
     }
     

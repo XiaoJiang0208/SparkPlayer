@@ -59,6 +59,7 @@ else()
             widgets/TitleBar.h widgets/TitleBar.cpp
             widgets/MediaListButton.h widgets/MediaListButton.cpp
             widgets/MediaBox.h widgets/MediaBox.cpp
+            widgets/VideoBox.h widgets/VideoBox.cpp
             utils/ImageTools.h utils/ImageTools.cpp
             utils/Path.h utils/Path.cpp
             utils/Codec.h utils/Codec.cpp

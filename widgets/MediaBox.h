@@ -15,7 +15,6 @@ class MediaBox : public QPushButton
 private:
     fs::path media_path;
 
-    QImage *icon_img;
     QLabel *icon;
     QLabel *m_name;
     QLabel *m_time;
@@ -32,8 +31,12 @@ public:
     QString text() const;
 
     fs::path getMediaPath();
+    
+    QSize getIconSize();
 
     void nextCheckState();
+
+    void mousePressEvent(QMouseEvent *ev);
 };
 
 

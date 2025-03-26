@@ -5,41 +5,21 @@
 
 DWIDGET_USE_NAMESPACE
 
-class MouseHitBox : public DLabel
-{
-    Q_OBJECT  // 添加此行
-private:
-    /* data */
-public:
-    MouseHitBox(QWidget *parent):DLabel(parent){};
-
-    void enterEvent(QEvent *event){
-        emit onMouseEnter();
-        DLabel::enterEvent(event);
-    }
-    void leaveEvent(QEvent *event){
-        emit onMouseLeave();
-        DLabel::leaveEvent(event);
-    }
-
-Q_SIGNALS:
-    void onMouseEnter();
-    void onMouseLeave();
-};
-
-
 class TitleBar : public DTitlebar
 {
 private:
-
+    QWidget *background;
 public:
     TitleBar(QWidget *parent = nullptr);
     ~TitleBar();
 
+
+
     void setHide(bool on);
     void raise();
+    void setStyleSheet(const QString &styleSheet);
 
-    //void resizeEvent(QResizeEvent *event) Q_DECL_OVERRIDE;
+    void resizeEvent(QResizeEvent *event);
 };
 
 

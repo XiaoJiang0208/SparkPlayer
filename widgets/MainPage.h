@@ -8,6 +8,7 @@
 #include "../utils/ImageTools.h"
 #include "../utils/Path.h"
 #include "MediaBox.h"
+#include "../SparkMediaControler.h"
 
 namespace fs = std::filesystem;
 

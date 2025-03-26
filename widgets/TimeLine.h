@@ -2,6 +2,7 @@
 #define TIMELINE_H
 
 #include "../include.h"
+#include "../SparkMediaControler.h"
 
 DWIDGET_USE_NAMESPACE
 
@@ -11,9 +12,10 @@ class TimeLine : public DWidget
 public:
     explicit TimeLine(Qt::Orientation orientation = Qt::Horizontal, QWidget *parent = nullptr);
     QSlider *main_slider;
-    
+    bool isPressed = false;
+
     void setMaxTime(double time);
-    void setTime(double time);
+    void SetTime(double time);
 
 private:
     DLabel * left_time;
@@ -22,6 +24,7 @@ private:
     double max_time;
 public slots:
     void slotThemeTypeChanged();
+    void slotValueChanged(int value);
 signals:
 
 };

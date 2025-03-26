@@ -14,7 +14,6 @@ MainPage::MainPage(QWidget *parent, PageData *data)
     connect(DGuiApplicationHelper::instance(), &DGuiApplicationHelper::themeTypeChanged, this, &MainPage::slotThemeTypeChanged);
     initUI();
     reloadMedia();
-
 }
 
 void MainPage::initUI()
@@ -78,11 +77,22 @@ void MainPage::reloadMedia()
         MediaBox *b = new MediaBox(*data,media_list_context);
         b->setFixedHeight(50);
         b->setCheckable(true);
-        b->setIcon(ImageTools::toPixmap(Path::applicationPath("images/bg.png").toString(),{(b->height()-10)/9*16,b->height()-10},6));
+        // TODO 优化图片加载性能
+        QSize size(b->getIconSize());
+        QImage img(size,QImage::Format_RGB32);
+        uint8_t* imgdata[1] = { reinterpret_cast<uint8_t*>(img.bits()) };
+        int linesize[1] = { static_cast<int>(img.bytesPerLine()) };
+        int res = Codec::getTitleImg(b->getMediaPath(),size.width(),size.height(),imgdata,linesize);
+        if (res >= 0) {
+            b->setIcon(QPixmap::fromImage(img));
+        } else {
+            b->setIcon(ImageTools::toPixmap(Path::applicationPath("images/bg.png").toString(),{(b->height()-10)/9*16,b->height()-10},6));
+        }
         b->setStyleSheet(".MediaBox{background-color:rgba(255, 255, 255, 0); border-radius: 10px;}\
                             .MediaBox:hover{background-color:rgba(255, 255, 255, 0.2); border-radius: 10px;}\
                             .MediaBox:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}\
                             .MediaBox:checked{color:rgb(100, 180, 255); border-radius: 10px;}");
+        
         media_box_list->addButton(b);
         media_list_context_layout->addWidget(b);
     }
