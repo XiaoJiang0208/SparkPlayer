@@ -84,17 +84,17 @@ void MainPage::reloadMedia()
         int linesize[1] = { static_cast<int>(img.bytesPerLine()) };
         int res = Codec::getTitleImg(b->getMediaPath(),size.width(),size.height(),imgdata,linesize);
         if (res >= 0) {
-            b->setIcon(QPixmap::fromImage(img));
+            b->setIcon(ImageTools::toPixmap(img,{(b->height()-10)/9*16,b->height()-10},6));
         } else {
-            b->setIcon(ImageTools::toPixmap(Path::applicationPath("images/bg.png").toString(),{(b->height()-10)/9*16,b->height()-10},6));
+            b->setIcon(ImageTools::toPixmap(Path::applicationPath("images/icon.png").toString(),{(b->height()-10)/9*16,b->height()-10},6));
         }
-        b->setStyleSheet(".MediaBox{background-color:rgba(255, 255, 255, 0); border-radius: 10px;}\
-                            .MediaBox:hover{background-color:rgba(255, 255, 255, 0.2); border-radius: 10px;}\
-                            .MediaBox:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}\
-                            .MediaBox:checked{color:rgb(100, 180, 255); border-radius: 10px;}");
-        
         media_box_list->addButton(b);
         media_list_context_layout->addWidget(b);
+        if (b->getMediaPath() == SparkMediaControler::getInstance()->getPath())
+        {
+            b->setChecked(true);
+        }
+        
     }
 }
 

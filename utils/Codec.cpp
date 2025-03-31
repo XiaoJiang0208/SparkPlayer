@@ -30,6 +30,7 @@ int32_t Codec::openFile(const char *path){
     m_vidStreamIndex = -1;
     m_picHeight = 0;
     m_picWidth = 0;
+    m_outAudSetting.sample=0;
     res = avformat_open_input(&m_pAvFormatCtx, path, nullptr, nullptr); // 打开文件
     if (m_pAvFormatCtx == nullptr)
     {
@@ -234,7 +235,11 @@ int32_t Codec::readPacket(){
     int res = 0;
 
     AVPacket *pPacket = av_packet_alloc();
-
+    if (!m_pAvFormatCtx)
+    {
+        return -1;
+    }
+    
     // 读取数据包
     res = av_read_frame(m_pAvFormatCtx, pPacket);
     if (res == AVERROR_EOF)
@@ -335,8 +340,12 @@ int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue, int stream_ind
             packetQueue.pop();
             return res;
         }
-        
-        
+        // int64_t delay = swr_get_delay(pSwrCtx, m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->sample_rate);
+        // int out_samples = av_rescale_rnd(delay + pOutFrame->nb_samples,
+        //                                 m_outAudSetting.sample_rate,
+        //                                 m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->sample_rate,
+        //                                 AV_ROUND_UP);
+        // m_outAudSetting.sample = out_samples;
         m_audBuffer.push(pOutFrame);
         if (pPacket) av_packet_free(&pPacket);
         packetQueue.pop();
@@ -470,27 +479,22 @@ int32_t Codec::videoFrameConvert(const AVFrame *pInFrame, OutVideoFrameSetting &
     return 0;
 }
 
-int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &settings, uint8_t *data[1], int linesize[1])
+int32_t Codec::initAudioContext()
 {
-    if (!pInFrame) {
-        qWarning() << "pInFrame is null";
-        return -1;
-    }
-
     // 分配 SwrContext
-    SwrContext *pSwrCtx = swr_alloc();
+    pSwrCtx = swr_alloc();
     if (!pSwrCtx) {
         qWarning() << "分配重采样上下文失败";
         return -1;
     }
 
-    // 配置输出通道布局（根据目标通道数）
+    // 配置输出声道布局
     AVChannelLayout out_ch_layout;
-    av_channel_layout_default(&out_ch_layout, settings.channel_count);
-    
+    av_channel_layout_default(&out_ch_layout, m_outAudSetting.channel_count);
+
     // 根据采样位深选择输出采样格式
     AVSampleFormat out_format = AV_SAMPLE_FMT_NONE;
-    switch (settings.sample_fmt) {
+    switch (m_outAudSetting.sample_fmt) {
         case 8:
             out_format = AV_SAMPLE_FMT_U8;
             break;
@@ -507,32 +511,32 @@ int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &
             out_format = AV_SAMPLE_FMT_DBL;
             break;
         default:
-            out_format = AV_SAMPLE_FMT_NONE;
-            break;
+            qWarning() << "不支持的采样位深:" << m_outAudSetting.sample_fmt;
+            swr_free(&pSwrCtx);
+            return -1;
     }
-    if (out_format == AV_SAMPLE_FMT_NONE) {
-        qWarning() << "不支持的采样位深:" << settings.sample_fmt;
-        swr_free(&pSwrCtx);
-        return -1;
-    }
-    
+
     // 配置重采样参数
     int res = swr_alloc_set_opts2(&pSwrCtx,
-                                  &out_ch_layout,                  // 输出声道布局
-                                  out_format,                      // 输出采样格式
-                                  settings.sample_rate,            // 输出采样率
-                                  &(pInFrame->ch_layout),    // 输入声道布局
-                                  AVSampleFormat(pInFrame->format),      // 输入采样格式
-                                  pInFrame->sample_rate,     // 输入采样率
+                                  &out_ch_layout,
+                                  out_format,
+                                  m_outAudSetting.sample_rate,
+                                  &(m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->ch_layout),
+                                  static_cast<AVSampleFormat>(m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->format),
+                                  m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->sample_rate,
                                   0,
                                   nullptr);
-    
+    qDebug() << "audio sample_rate: " << m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->sample_rate;
     if (res < 0) {
         qWarning() << "配置重采样上下文失败:" << res;
         swr_free(&pSwrCtx);
         return res;
     }
 
+    // 提高重采样质量
+    //swr_set_quality(pSwrCtx, 10); // 设置最高质量
+
+    // 初始化 SwrContext
     res = swr_init(pSwrCtx);
     if (res < 0) {
         qWarning() << "初始化重采样上下文失败:" << res;
@@ -540,45 +544,96 @@ int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &
         return res;
     }
 
-    int in_samples = pInFrame->nb_samples;
+    return 0;
+}
 
+int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &settings, uint8_t *data[1], int linesize[1])
+{
+    if (!pInFrame) {
+        qWarning() << "pInFrame is null";
+        return -1;
+    }
+
+
+    int in_samples = pInFrame->nb_samples;
     // 计算重采样延时并根据采样率比例重算输出采样点数
-    int64_t delay = swr_get_delay(pSwrCtx, pInFrame->sample_rate);
+    if (!pSwrCtx) return -1;
+    int64_t delay = swr_get_delay(pSwrCtx, m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->sample_rate);
     int out_samples = av_rescale_rnd(delay + in_samples,
                                      settings.sample_rate,
-                                     pInFrame->sample_rate,
+                                     m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->sample_rate,
                                      AV_ROUND_UP);
-
+    AVChannelLayout out_ch_layout;
+    av_channel_layout_default(&out_ch_layout, m_outAudSetting.channel_count);
+    // 根据采样位深选择输出采样格式
+    AVSampleFormat out_format = AV_SAMPLE_FMT_NONE;
+    switch (m_outAudSetting.sample_fmt) {
+        case 8:
+            out_format = AV_SAMPLE_FMT_U8;
+            break;
+        case 16:
+            out_format = AV_SAMPLE_FMT_S16;
+            break;
+        case 24:
+            out_format = AV_SAMPLE_FMT_S32;
+            break;
+        case 32:
+            out_format = AV_SAMPLE_FMT_FLT;
+            break;
+        case 63:
+            out_format = AV_SAMPLE_FMT_DBL;
+            break;
+        default:
+            qWarning() << "不支持的采样位深:" << m_outAudSetting.sample_fmt;
+            return -1;
+    }
     // 分配输出缓冲区
-    res = av_samples_alloc(data, linesize, out_ch_layout.nb_channels,
-                           out_samples, out_format, 0);
+    int res = av_samples_alloc(data, linesize,
+                           out_ch_layout.nb_channels,
+                           out_samples,
+                           out_format,
+                           0);
     if (res < 0) {
         qWarning() << "分配缓冲区失败";
-        swr_free(&pSwrCtx);
         return -1;
     }
-    
+
     // 执行重采样转换
-    int converted_samples = swr_convert(pSwrCtx, data, out_samples,
-                                        pInFrame->data, in_samples);
+    int converted_samples = swr_convert(pSwrCtx,
+                                       data,
+                                       out_samples,
+                                       pInFrame->data,
+                                       in_samples);
+    m_outAudSetting.sample = converted_samples;
     if (converted_samples < 0) {
         qWarning() << "重采样转换失败:" << converted_samples;
-        swr_free(&pSwrCtx);
         av_freep(&data[0]);
         return -1;
     }
-
+    //m_outAudSetting.sample = converted_samples;
     // 可选：重新计算输出数据大小
-    linesize[0] = av_samples_get_buffer_size(nullptr, out_ch_layout.nb_channels,
-                                             converted_samples, out_format, 0);
+    linesize[0] = av_samples_get_buffer_size(nullptr,
+                                             out_ch_layout.nb_channels,
+                                             converted_samples,
+                                             out_format,
+                                             0);
     if (linesize[0] < 0) {
         qWarning() << "计算输出缓冲区大小失败";
-        swr_free(&pSwrCtx);
         av_freep(&data[0]);
         return -1;
     }
 
-    swr_free(&pSwrCtx);
+    // 添加调试输出
+    //qDebug() << "输入采样率:" << pInFrame->sample_rate;
+    //qDebug() << "输出采样率:" << settings.sample_rate;
+    //qDebug() << "输入采样格式:" << pInFrame->format;
+    //qDebug() << "输出采样格式:" << out_format;
+    //qDebug() << "声道数:" << out_ch_layout.nb_channels;
+    //qDebug() << "输入样本数:" << in_samples;
+    //qDebug() << "计算的输出样本数:" << out_samples;
+    //qDebug() << "转换后的样本数:" << converted_samples;
+    //qDebug() << "Linesize[0]:" << linesize[0];
+
     return converted_samples;
 }
 
@@ -602,11 +657,12 @@ void Codec::threadReadPacket()
 
 void Codec::threadDecodeVideo()
 {
-    std::lock_guard<std::mutex> lock(m_vidPacketQueueMutex);
     qDebug()<<"vidin";
     while (m_isDecoding)
     {
+        m_vidPacketQueueMutex.lock();
         packetDecoder(m_vidPacketQueue,m_vidStreamIndex);
+        m_vidPacketQueueMutex.unlock();
     }
     qDebug()<<"vidout";
     
@@ -614,14 +670,16 @@ void Codec::threadDecodeVideo()
 
 void Codec::threadDecodeAudio()
 {
-    std::lock_guard<std::mutex> lock(m_audPacketQueueMutex);
+    initAudioContext();
     qDebug()<<"audin";
     while (m_isDecoding)
     {
+        m_audPacketQueueMutex.lock();
         packetDecoder(m_audPacketQueue,m_audStreamIndex);
+        m_audPacketQueueMutex.unlock();
     }
     qDebug()<<"audout";
-    
+    swr_free(&pSwrCtx);
 }
 
 void Codec::startDecoding()
@@ -630,7 +688,6 @@ void Codec::startDecoding()
     {
         setSeekTime(0.0);
     }
-    
     
     m_isDecoding = true;
     m_isEnd = false;
@@ -676,9 +733,9 @@ int32_t Codec::getFinalVidFrame(uint8_t *data[1], int linesize[1])
 
 int32_t Codec::getFinalAudFrame(uint8_t *data[1], int linesize[1])
 {
-    if(m_audBuffer.empty()) return -1;
 
     int res=0;
+    if(m_audBuffer.empty()) return -1;
     res = audioFrameConvert(m_audBuffer.front(),m_outAudSetting,data,linesize);
     
         double audioPts = m_audBuffer.front()->pts * av_q2d(m_pAvFormatCtx->streams[m_audStreamIndex]->time_base);
@@ -728,25 +785,7 @@ OutAudioFrameSetting Codec::getRawAudioSettings()
 
 int Codec::getAudioSamples()
 {
-    switch (m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->codec_id)
-    {
-    case AV_CODEC_ID_AAC:
-        return 1024;
-        break;
-    case AV_CODEC_ID_AC3:
-        return 1536;
-        break;
-    case AV_CODEC_ID_DTS:
-        return 1024;
-        break;
-    case AV_CODEC_ID_MP3:
-        return 1152;
-        break;
-    
-    default:
-        return 1024;
-        break;
-    }
+    return m_outAudSetting.sample;
 }
 
 double Codec::getSeekTime()
@@ -765,19 +804,32 @@ void Codec::setSeekTime(double time)
         qWarning() << "无效的格式上下文或音频流索引";
         return;
     }
-    int64_t pts = time / av_q2d(m_pAvFormatCtx->streams[m_audStreamIndex]->time_base);
-    int res = av_seek_frame(m_pAvFormatCtx,m_audStreamIndex,pts,AVSEEK_FLAG_BACKWARD);
-    //pts = time / av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base);
-    //res = av_seek_frame(m_pAvFormatCtx,m_vidStreamIndex,pts,AVSEEK_FLAG_BACKWARD);
+
     while (!m_audPacketQueue.empty())
     {
         av_packet_free(&(m_audPacketQueue.front()));
         m_audPacketQueue.pop();
     }
+    while (!m_audBuffer.empty())
+    {
+        av_frame_free(&(m_audBuffer.front()));
+        m_audBuffer.pop();
+    }
+    
     while (!m_vidPacketQueue.empty())
     {
         av_packet_free(&(m_vidPacketQueue.front()));
         m_vidPacketQueue.pop();
+    }
+
+    int64_t pts;
+    int res;
+    if (m_mediaType == video) {
+        pts = time / av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base);
+        res = av_seek_frame(m_pAvFormatCtx,m_vidStreamIndex,pts,AVSEEK_FLAG_BACKWARD);    
+    } else {
+        pts = time / av_q2d(m_pAvFormatCtx->streams[m_audStreamIndex]->time_base);
+        res = av_seek_frame(m_pAvFormatCtx,m_audStreamIndex,pts,AVSEEK_FLAG_BACKWARD);
     }
     
     if (res < 0)

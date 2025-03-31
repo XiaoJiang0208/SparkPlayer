@@ -14,6 +14,7 @@
 #include <qt5/QtCore/QIODevice>
 #include "utils/Codec.h"
 #include "utils/ImageTools.h"
+#include "utils/Path.h"
 
 #include <SDL.h>
 
@@ -111,6 +112,8 @@ public:
      * @param path 媒体文件的路径
      */
     void removeMedia(fs::path path);
+    // 获取播放列表的指针
+    std::deque<fs::path> *getPlayList();
     // 下一个
     void nextMedia();
     // 上一个

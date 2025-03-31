@@ -18,9 +18,12 @@ private:
     QLabel *icon;
     QLabel *m_name;
     QLabel *m_time;
+
+    QMenu *menu;
     
+    bool del_mode;
 public:
-    MediaBox(fs::path &path, QWidget *parent = nullptr);
+    MediaBox(fs::path &path, QWidget *parent = nullptr, bool is_del_mod = 0);
     ~MediaBox();
 
     void initUI();
@@ -34,9 +37,13 @@ public:
     
     QSize getIconSize();
 
-    void nextCheckState();
+    void setDelMode(bool is);
 
-    void mousePressEvent(QMouseEvent *ev);
+    void mouseReleaseEvent(QMouseEvent *ev);
+    void checkStateSet();
+
+public Q_SLOTS:
+    void slotThemeTypeChanged();
 };
 
 

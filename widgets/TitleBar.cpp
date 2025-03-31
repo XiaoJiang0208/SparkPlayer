@@ -1,11 +1,12 @@
 #include "TitleBar.h"
+#include "../utils/Path.h"
 
 TitleBar::TitleBar(QWidget *parent):DTitlebar(parent)
 {
     background = new QWidget(parent);
     this->setFixedHeight(50);
     this->setBackgroundTransparent(true);
-    this->setIcon(this->style()->standardIcon(DStyle::SP_ComputerIcon));
+    this->setIcon(QIcon(ImageTools::toPixmap(Path::applicationPath().toString()+"/images/icon.png",{1000,1000})));
 }
  
 TitleBar::~TitleBar(){

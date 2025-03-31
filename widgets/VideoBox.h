@@ -12,6 +12,7 @@ class VideoBox : public QLabel
     Q_OBJECT
 private:
     bool is_fullscreen = false;
+    QLabel *background;
     QImage *img;
 public:
     VideoBox(QWidget *parent = nullptr);
@@ -24,6 +25,7 @@ public:
 
     void resizeEvent();
 
+    void raise();
 signals:
     void onFullscreen(bool t);
 

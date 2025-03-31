@@ -28,5 +28,8 @@
 #include <QString>
 #include <QUrl>
 #include <QPropertyAnimation>
+#include <QTimer>
+#include <QGraphicsDropShadowEffect>
+#include <QtConcurrent/QtConcurrent>
 
 #endif // INCLUDE_H

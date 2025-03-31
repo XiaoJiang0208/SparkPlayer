@@ -2,6 +2,7 @@
 #define TITLE_BAR_H
 
 #include "../include.h"
+#include "../utils/ImageTools.h"
 
 DWIDGET_USE_NAMESPACE
 

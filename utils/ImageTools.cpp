@@ -36,10 +36,13 @@ QPixmap ImageTools::toPixmap(const QImage &raw, QSize size, int radius)
     QPainterPath path;
     path.addRoundedRect(0,0,size.width(),size.height(), radius, radius);
     painter.setClipPath(path);
-    painter.fillPath(path,Qt::black);
     QPixmap scaledPixmap = QPixmap::fromImage(raw.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     int x = (size.width() - scaledPixmap.width()) / 2;
     int y = (size.height() - scaledPixmap.height()) / 2;
     painter.drawPixmap(x, y, scaledPixmap);
+    QPainterPath path2;
+    path2.addRect(x,y,scaledPixmap.width(),scaledPixmap.height());
+    path2 = path.subtracted(path2);
+    painter.fillPath(path2,Qt::black);
     return background;
 }

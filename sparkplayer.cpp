@@ -6,6 +6,7 @@ SparkMediaControler* Sparkplayer::media_controler = nullptr;
 Sparkplayer::Sparkplayer()
     : DMainWindow()
 {
+    setWindowIcon(QIcon(ImageTools::toPixmap(Path::applicationPath("images/icon.png").toString(),{1000,1000})));
     main_page = nullptr;
     media_controler = SparkMediaControler::getInstance();
     //media_controler->setVideoSize(0,0);
@@ -85,7 +86,7 @@ void Sparkplayer::setupUI()
 
     //QSpacerItem *s =new  QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding); // 弹簧
     media_list->setWidget(media_list_context);
-    
+
 
 
     // 右侧区域
@@ -147,7 +148,6 @@ void Sparkplayer::setupUI()
         {
             play_button->setIcon(play_button->style()->standardIcon(DStyle::SP_MediaPause));
         }
-        
     });
     previous_play = new DPushButton(controlers); // 初始化上一个按钮
     previous_play->setIcon(previous_play->style()->standardIcon(DStyle::SP_MediaSeekBackward));
@@ -169,6 +169,7 @@ void Sparkplayer::setupUI()
     connect(next_play,&DPushButton::clicked,[=](){
         media_controler->nextMedia();
     });
+
     controler_box_layout->addWidget(previous_play);
     controler_box_layout->addWidget(play_button);
     controler_box_layout->addWidget(next_play);
@@ -183,6 +184,7 @@ void Sparkplayer::setupUI()
     title_bar->raise(); // 置顶 titlebar
     controlers->raise(); // 置顶 controlers
 
+    volume_box = new VolumeBox(controlers); // 配置音量按键
     video_box = new VideoBox(this);
     video_box->raise();
 }
@@ -194,6 +196,7 @@ void Sparkplayer::resizeEvent(QResizeEvent *event)
     video_box->resizeEvent();
     controlers->setFixedWidth(width());
     controlers->move(0,height()-80);
+    volume_box->resizebox();
 }
 
 void Sparkplayer::reloadMediaPage()
@@ -281,6 +284,7 @@ void Sparkplayer::slotFullscreen(bool t)
         title_bar->setStyleSheet(".QWidget{background-color:rgba(255, 255, 255, 0.2);}");
         controlers->raise();
         controlers->setStyleSheet(".QWidget{background-color:rgba(255, 255, 255, 0.2);}");
+        volume_box->raise();
     } else {
         video_box->raise();
         controlers->setStyleSheet(".QWidget{background-color:rgba(255, 255, 255, 0);}");

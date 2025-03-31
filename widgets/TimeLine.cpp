@@ -26,6 +26,10 @@ TimeLine::TimeLine(Qt::Orientation orientation, QWidget *parent)
     });
     connect(main_slider,&QSlider::sliderReleased,[&](){
         isPressed = false;
+        if (SparkMediaControler::getInstance()->isHaveFile())
+        {
+            SparkMediaControler::getInstance()->setSeekTime(main_slider->value());
+        }
     });
 
     connect(DGuiApplicationHelper::instance(), &DGuiApplicationHelper::themeTypeChanged, this, &TimeLine::slotThemeTypeChanged);
@@ -86,10 +90,6 @@ void TimeLine::slotValueChanged(int value)
         .arg(m, 2, 10, QLatin1Char('0'))
         .arg(s, 2, 10, QLatin1Char('0')));
     qDebug() << "value changed:" << value;
-    if (SparkMediaControler::getInstance()->isHaveFile())
-    {
-        SparkMediaControler::getInstance()->setSeekTime(value);
-    }
     
 }
 

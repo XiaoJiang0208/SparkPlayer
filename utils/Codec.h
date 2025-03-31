@@ -10,6 +10,7 @@ extern "C" {
 #include <libavutil/channel_layout.h>
 #include <libswresample/swresample.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/opt.h>
 }
 
 #include <thread>
@@ -41,6 +42,7 @@ struct OutAudioFrameSetting
     int sample_rate = 48000;
     int channel_count = 2;
     int sample_fmt = 16;
+    int sample = 0;
 };
 
 class AVSync
@@ -91,6 +93,8 @@ private:
     int32_t m_picWidth;
 
     AVCodecContext *m_pAudCodecCtx; // 音频编解码上下文
+    // 分配 SwrContext
+    SwrContext *pSwrCtx;
     int32_t m_audStreamIndex; // 音频流索引
     double m_audDelayCorrection;
 
@@ -132,8 +136,8 @@ private:
     int32_t packetDecoder(std::queue<AVPacket *> &packetQueue, int stream_index); // 解码包
     int32_t decodePacketToFrame(AVCodecContext *pCodecCtx, const AVPacket *pPacket, AVFrame **ppFrame); // 解码视频帧
     int32_t videoFrameConvert(const AVFrame *pInFrame, OutVideoFrameSetting &settings, uint8_t* data[1],int linesize[1]); // 转换视频帧
+    int32_t initAudioContext();
     int32_t audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &settings, uint8_t* data[1],int linesize[1]);
-
     void threadReadPacket();
     void threadDecodeVideo();
     void threadDecodeAudio();

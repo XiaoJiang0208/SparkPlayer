@@ -8,6 +8,7 @@
 #include "widgets/TitleBar.h"
 #include "widgets/MediaListButton.h"
 #include "widgets/VideoBox.h"
+#include "widgets/VolumeBox.h"
 #include "SparkMediaControler.h"
 
 DWIDGET_USE_NAMESPACE
@@ -58,7 +59,7 @@ private:
     DPushButton *previous_play; // 上一个
     DPushButton *next_play; // 下一个
     DPushButton *fullscreen_button; // 全屏按钮
-
+    VolumeBox *volume_box;
     
 public slots:
     void slotThemeTypeChanged();
