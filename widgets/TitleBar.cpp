@@ -15,19 +15,18 @@ TitleBar::~TitleBar(){
 
 void TitleBar::setHide(bool on)
 {
-    QPropertyAnimation *animation = new QPropertyAnimation(this, "geometry");
+    QPropertyAnimation* animation = new QPropertyAnimation(this, "geometry");
     animation->setDuration(300);
     QRect gm = this->geometry();
     animation->setStartValue(gm);
     if (on) {
         gm.setY(-50);
-        animation->setEndValue(gm);
     } else {
         gm.setY(0);
-        animation->setEndValue(gm);
     }
+    animation->setEndValue(gm);
+    connect(animation, &QPropertyAnimation::valueChanged, this, [&](const QVariant &value){ background->move(this->pos()); });
     animation->start(QAbstractAnimation::DeleteWhenStopped);
-
 }
 
 void TitleBar::raise()

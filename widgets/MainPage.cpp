@@ -11,9 +11,19 @@ MainPage::MainPage(QWidget *parent, PageData *data)
         this->data = new PageData;
     }
     
-    connect(DGuiApplicationHelper::instance(), &DGuiApplicationHelper::themeTypeChanged, this, &MainPage::slotThemeTypeChanged);
     initUI();
     reloadMedia();
+
+    connect(DGuiApplicationHelper::instance(), &DGuiApplicationHelper::themeTypeChanged, this, &MainPage::slotThemeTypeChanged);
+    // 播放全部
+    connect(play_all, &DPushButton::clicked, this, [&](){
+        SparkMediaControler::getInstance()->pause();
+        SparkMediaControler::getInstance()->removeAllMedia();
+        for (auto d : media_data_list){
+            SparkMediaControler::getInstance()->addMedia(d);
+        }
+        SparkMediaControler::getInstance()->play();
+    });
 }
 
 void MainPage::initUI()
@@ -37,26 +47,40 @@ void MainPage::initUI()
     media_list_context_layout->setSpacing(0);
     media_list_context_layout->setAlignment(Qt::AlignTop);  // 新增，确保从上到下排列
     
-    //初始化主标题栏
+    // 初始化主标题栏
     media_list_bar = new DWidget(media_list_context);
     media_list_bar->setFixedHeight(100);
     media_list_bar_layout = new QHBoxLayout(media_list_bar);
     media_list_bar_layout->setAlignment(Qt::AlignLeft);
-
     media_list_context_layout->addWidget(media_list_bar);
 
+    // 添加图标
     media_list_bar_icon = new DLabel(media_list_bar);
     media_list_bar_icon->setPixmap(ImageTools::toPixmap(Path::applicationPath("images/bg.png").toString(), QSize(100, 80),15));
     media_list_bar_icon->show();
     media_list_bar_layout->addWidget(media_list_bar_icon);
 
+    media_list_bar_right_layout = new QVBoxLayout();
+    media_list_bar_layout->addLayout(media_list_bar_right_layout);
+
+    // 添加标题
     media_list_bar_title = new DLabel(data->title,media_list_bar);
     media_list_bar_title->setFont(DFontSizeManager::instance()->t3());
+    media_list_bar_title->setWordWrap(true);
+    media_list_bar_title->setAlignment(Qt::AlignLeft);
     media_list_bar_title->show(); 
-    media_list_bar_layout->addWidget(media_list_bar_title);
+    media_list_bar_right_layout->addWidget(media_list_bar_title);
 
+    media_list_bar_button_layout = new QHBoxLayout();
+    media_list_bar_button_layout->setAlignment(Qt::AlignLeft);
+    media_list_bar_right_layout->addLayout(media_list_bar_button_layout);
 
-    media_box_list = new QButtonGroup(media_list_context);
+    play_all = new DPushButton("播放全部",media_list_bar);
+    play_all->setIcon(play_all->style()->standardIcon(DStyle::SP_MediaPlay));
+    play_all->setIconSize(QSize(15,15));
+    play_all->setFixedSize(90,30);
+    media_list_bar_button_layout->addWidget(play_all);
+
     
     media_list->setWidget(media_list_context);
 
@@ -76,30 +100,17 @@ void MainPage::reloadMedia()
     for (QList<fs::path>::iterator data = media_data_list.begin();data < media_data_list.end();data++) {
         MediaBox *b = new MediaBox(*data,media_list_context);
         b->setFixedHeight(50);
-        b->setCheckable(true);
-        // TODO 优化图片加载性能
-        QSize size(b->getIconSize());
-        QImage img(size,QImage::Format_RGB32);
-        uint8_t* imgdata[1] = { reinterpret_cast<uint8_t*>(img.bits()) };
-        int linesize[1] = { static_cast<int>(img.bytesPerLine()) };
-        int res = Codec::getTitleImg(b->getMediaPath(),size.width(),size.height(),imgdata,linesize);
-        if (res >= 0) {
-            b->setIcon(ImageTools::toPixmap(img,{(b->height()-10)/9*16,b->height()-10},6));
-        } else {
-            b->setIcon(ImageTools::toPixmap(Path::applicationPath("images/icon.png").toString(),{(b->height()-10)/9*16,b->height()-10},6));
-        }
-        media_box_list->addButton(b);
         media_list_context_layout->addWidget(b);
-        if (b->getMediaPath() == SparkMediaControler::getInstance()->getPath())
-        {
-            b->setChecked(true);
-        }
-        
+        b->autoSetIcon();
     }
 }
 
 void MainPage::slotThemeTypeChanged()
 { 
+    play_all->setStyleSheet(".QPushButton{background-color:rgb(100, 180, 255); border-radius: 10px;}\
+                             .QPushButton:hover{background-color:rgb(74, 143, 207); border-radius: 10px;}\
+                             .QPushButton:pressed{background-color:rgb(117, 163, 206); border-radius: 10px;}");
+    media_list_bar->setStyleSheet(".QWidget { border-bottom: 2px solid #000; }");
     media_list_bar_icon->setStyleSheet(".QLabel{\
         background-color: rgba(197, 37, 37, 0.37);\
         backdrop-filter: blur( 1.5px );}");

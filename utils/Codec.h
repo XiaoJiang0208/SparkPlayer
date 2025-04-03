@@ -108,9 +108,9 @@ private:
     OutVideoFrameSetting m_outVidSetting;
     OutAudioFrameSetting m_outAudSetting;
 
-    bool m_isDecoding; // 是否在解码
-    bool m_isEnd;
-    bool overload; // 是否过载
+    std::atomic_bool m_isDecoding; // 是否在解码
+    std::atomic_bool m_isEnd;
+    std::atomic_bool overload; // 是否过载
     
     double m_audDelay;
 

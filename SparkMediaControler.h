@@ -112,6 +112,12 @@ public:
      * @param path 媒体文件的路径
      */
     void removeMedia(fs::path path);
+    /**
+     * @brief 清空播放列表
+     *
+     * 此方法用于从播放列表中移除所有媒体文件
+     */
+    void removeAllMedia();
     // 获取播放列表的指针
     std::deque<fs::path> *getPlayList();
     // 下一个
@@ -150,6 +156,7 @@ signals:
     void onStatusChange();
     void onTimeChange();
     void onFileOpen();
+    void onPlayListChange();
 };
 
 

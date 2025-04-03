@@ -31,5 +31,7 @@
 #include <QTimer>
 #include <QGraphicsDropShadowEffect>
 #include <QtConcurrent/QtConcurrent>
+#include <QFileDialog>
+#include <QDir>
 
 #endif // INCLUDE_H

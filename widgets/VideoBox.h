@@ -12,7 +12,7 @@ class VideoBox : public QLabel
     Q_OBJECT
 private:
     bool is_fullscreen = false;
-    QLabel *background;
+    QTimer *hideMouseTimer;
     QImage *img;
 public:
     VideoBox(QWidget *parent = nullptr);
@@ -22,13 +22,12 @@ public:
     void fullscreen(bool is);
 
     void mousePressEvent(QMouseEvent *ev);
-
+    void mouseMoveEvent(QMouseEvent *ev);
     void resizeEvent();
-
-    void raise();
 signals:
     void onFullscreen(bool t);
-
+    void onNeedShow();
+    void onNeedHide();
 public slots:
     void showimg();
 };

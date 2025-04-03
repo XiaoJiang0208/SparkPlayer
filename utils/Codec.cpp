@@ -41,7 +41,6 @@ int32_t Codec::openFile(const char *path){
     if (res == AVERROR_EOF)
     {
         qWarning() << "查找流信息失败";
-        closeFile();
         return -1;
     }
 
@@ -108,7 +107,6 @@ int32_t Codec::openFile(const char *path){
     if (pVidCodec == nullptr && pAudCodec == nullptr)
     {
         qWarning() << "找不到有效的流";
-        closeFile();
         return -1;
     }
 
@@ -127,7 +125,6 @@ int32_t Codec::openFile(const char *path){
         if (res < 0)
         {
             qWarning() << "设置音频解码器上下文参数失败";
-            closeFile();
             return -1;
         }
         // 打开音频解码器
@@ -135,7 +132,6 @@ int32_t Codec::openFile(const char *path){
         if (res < 0)
         {
             qWarning() << "打开音频解码器失败";
-            closeFile();
             return -1;
         }
     }
@@ -319,7 +315,7 @@ int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue, int stream_ind
         else if (delay > 0.0) // 可设置阈值，根据实际情况丢弃过期帧
         {
             // 等待delay对应的微秒数，此处使用av_usleep（注意单位为微秒
-            qDebug()<<"666:"<<delay;
+            // qDebug()<<"666:"<<delay;
             av_usleep(static_cast<unsigned int>(delay * 1000000));
         }
 
@@ -726,6 +722,11 @@ int32_t Codec::getFinalVidFrame(uint8_t *data[1], int linesize[1])
     
     int res=0;
     res = videoFrameConvert(m_vidBuffer.front(),m_outVidSetting,data,linesize);
+    if (!m_vidBuffer.front())
+    {
+        return -1;
+    }
+    
     av_frame_free(&(m_vidBuffer.front()));
     m_vidBuffer.pop();
     return res;
@@ -851,7 +852,10 @@ double Codec::getTime()
 int32_t Codec::getTitleImgHeight(fs::path path)
 {
     Codec codec;
-    codec.openFile(path.c_str());
+    if (codec.openFile(path.c_str())<0) {
+        codec.closeFile();
+        return -1;
+    }
     int32_t h = codec.m_picHeight;
     codec.closeFile();
     return h;
@@ -860,7 +864,10 @@ int32_t Codec::getTitleImgHeight(fs::path path)
 int32_t Codec::getTitleImgWidth(fs::path path)
 {
     Codec codec;
-    codec.openFile(path.c_str());
+    if (codec.openFile(path.c_str())<0) {
+        codec.closeFile();
+        return -1;
+    }
     int32_t w = codec.m_picWidth;
     codec.closeFile();
     return w;
@@ -870,8 +877,10 @@ int32_t Codec::getTitleImg(fs::path path, int width, int height, uint8_t *data[1
 {
     int32_t res;
     Codec codec;
-    res = codec.openFile(path.c_str());
-    if (res) return res;
+    if (codec.openFile(path.c_str())<0) {
+        codec.closeFile();
+        return -1;
+    }
 
     if (codec.m_picStreamIndex>0)
     {

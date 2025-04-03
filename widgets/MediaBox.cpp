@@ -8,15 +8,25 @@ MediaBox::MediaBox(fs::path &path, QWidget *parent, bool is_del_mod):QPushButton
     QString name = QString::fromStdString(media_path.stem().string());
     setText(name);
     setDelMode(is_del_mod);
+    if (SparkMediaControler::getInstance()->getPath() == this->media_path)
+    {
+        m_name->setStyleSheet(".QLabel{color:rgb(100, 180, 255);}");
+    } else {
+        m_name->setStyleSheet(".QLabel {}");
+    }
     connect(SparkMediaControler::getInstance(), &SparkMediaControler::onFileOpen,this, [&](){
         if (SparkMediaControler::getInstance()->getPath() == this->media_path)
         {
-            this->setChecked(true);
+            m_name->setStyleSheet(".QLabel{color:rgb(100, 180, 255);}");
+        } else {
+            m_name->setStyleSheet(".QLabel {}");
         }
     });
 
     connect(DGuiApplicationHelper::instance(), &DGuiApplicationHelper::themeTypeChanged, this, &MediaBox::slotThemeTypeChanged);
     slotThemeTypeChanged();
+
+    icon->setFixedSize(this->getIconSize());
 }
 
 MediaBox::~MediaBox() {
@@ -45,6 +55,22 @@ void MediaBox::setIcon(const QPixmap &icon)
     this->icon->setFixedSize(w,h);
     this->icon->setPixmap(icon);
     this->m_name->setAlignment(Qt::AlignLeft);
+}
+
+void MediaBox::autoSetIcon()
+{
+        this->setIcon(ImageTools::toPixmap(Path::applicationPath("images/icon.png").toString(),this->getIconSize(),6));
+        // TODO 优化图片加载性能
+        QTimer::singleShot(50,this,[&](){
+            QSize size(this->getIconSize());
+            QImage img(size,QImage::Format_RGB32);
+            uint8_t* imgdata[1] = { reinterpret_cast<uint8_t*>(img.bits()) };
+            int linesize[1] = { static_cast<int>(img.bytesPerLine()) };
+            int res = Codec::getTitleImg(this->getMediaPath(),size.width(),size.height(),imgdata,linesize);
+            if (res >= 0) {
+                this->setIcon(ImageTools::toPixmap(img,{(this->height()-10)/9*16,this->height()-10},6));
+            }
+        });
 }
 
 void MediaBox::setText(const QString &text)
@@ -112,16 +138,8 @@ void MediaBox::mouseReleaseEvent(QMouseEvent *ev)
     
 }
 
-void MediaBox::checkStateSet()
-{
-    if (isChecked()){
-        m_name->setStyleSheet(".QLabel{color:rgb(100, 180, 255);}");
-    } else {
-        m_name->setStyleSheet(".QLabel {}");
-    }
-}
-
 void MediaBox::slotThemeTypeChanged() {
+    icon->setStyleSheet(".QLabel{gackround-color:rgba(0,0,0,0);}");
     this->setStyleSheet(".MediaBox{background-color:rgba(255, 255, 255, 0); border-radius: 10px;}\
                          .MediaBox:hover{background-color:rgba(138, 138, 138, 0.2); border-radius: 10px;}");
     // 添加阴影效果

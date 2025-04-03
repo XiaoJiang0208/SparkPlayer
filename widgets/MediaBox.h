@@ -29,6 +29,7 @@ public:
     void initUI();
 
     void setIcon(const QPixmap &icon);
+    void autoSetIcon();
 
     void setText(const QString &text);
     QString text() const;
@@ -40,7 +41,6 @@ public:
     void setDelMode(bool is);
 
     void mouseReleaseEvent(QMouseEvent *ev);
-    void checkStateSet();
 
 public Q_SLOTS:
     void slotThemeTypeChanged();

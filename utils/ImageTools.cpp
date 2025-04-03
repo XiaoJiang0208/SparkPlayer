@@ -6,7 +6,7 @@ QPixmap ImageTools::toPixmap(const QString &url, QSize size, int radius)
 {
     QImageReader raw(url);
     QPixmap image;
-    bool isHeight = raw.size().height() > raw.size().width();
+    bool isHeight = raw.size().height() >= raw.size().width();
     if (isHeight) // 竖图
     {
         raw.setScaledSize(QSize(size.width(),size.height()*raw.size().height()/raw.size().width()));

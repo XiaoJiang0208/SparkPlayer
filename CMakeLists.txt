@@ -27,6 +27,8 @@ set(PROJECT_SOURCES
 
         SparkMediaControler.h
         SparkMediaControler.cpp
+        SparkSettings.h
+        SparkSettings.cpp
         ${TS_FILES}
 )
 
@@ -62,6 +64,7 @@ else()
             widgets/VideoBox.h widgets/VideoBox.cpp
             widgets/VolumeBox.h widgets/VolumeBox.cpp
             widgets/PlayListBox.h widgets/PlayListBox.cpp
+            widgets/PlayListButton.h widgets/PlayListButton.cpp
             utils/ImageTools.h utils/ImageTools.cpp
             utils/Path.h utils/Path.cpp
             utils/Codec.h utils/Codec.cpp

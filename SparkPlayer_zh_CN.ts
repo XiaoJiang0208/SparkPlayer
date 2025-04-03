@@ -19,5 +19,17 @@
         <source>SparkPlayer</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>删除媒体库</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>添加媒体库</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>选择媒体目录</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

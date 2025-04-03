@@ -9,7 +9,9 @@
 #include "widgets/MediaListButton.h"
 #include "widgets/VideoBox.h"
 #include "widgets/VolumeBox.h"
+#include "widgets/PlayListButton.h"
 #include "SparkMediaControler.h"
+#include "SparkSettings.h"
 
 DWIDGET_USE_NAMESPACE
 
@@ -36,7 +38,7 @@ private:
     void setupUI();
     void reloadMediaPage();
     void addMediaPage(PageData data, int index = 0); // 添加媒体页面
-    //void removeMediaPage(const );
+    void removeMediaPage(MediaListButton *b);
     void setMainPage(QAbstractButton *button); // 设置主页面
     
     VideoBox *video_box;
@@ -60,7 +62,11 @@ private:
     DPushButton *next_play; // 下一个
     DPushButton *fullscreen_button; // 全屏按钮
     VolumeBox *volume_box;
+    PlayListButton *play_list_button;
     
+
+    void mouseReleaseEvent(QMouseEvent *event);
+
 public slots:
     void slotThemeTypeChanged();
     void slotFullscreen(bool t);

@@ -46,6 +46,8 @@ private:
 
     DWidget *media_list_bar; //主要标题栏
     QHBoxLayout *media_list_bar_layout; //主要标题栏布局器
+    QVBoxLayout *media_list_bar_right_layout;
+    QHBoxLayout *media_list_bar_button_layout; // 标题栏按钮布局
     DLabel *media_list_bar_title; //主要标题
     DLabel *media_list_bar_time; //主要时间
     DLabel *media_list_bar_content; //主要信息
@@ -54,7 +56,7 @@ private:
     DWidget *media_list_context; //媒体列表容器
     QVBoxLayout *media_list_context_layout; //媒体列表布局器
 
-    QButtonGroup *media_box_list;
+    DPushButton * play_all;
 
     void initUI(); //初始化页面
     void reloadMedia();

@@ -21,7 +21,7 @@ void SparkMediaControler::setVideoSize(int widht, int height)
 
 
 void audioCallback(void* userData, Uint8* stream, int len) {
-    qDebug()<<"缓冲区数据长度: "<<len;
+    //qDebug()<<"缓冲区数据长度: "<<len;
     SparkMediaControler* ctrl = static_cast<SparkMediaControler*>(userData);
     SDL_memset(stream, ctrl->audio_spec.silence, len);  // 默认填充静音
 
@@ -85,7 +85,8 @@ void SparkMediaControler::pause()
 
 void SparkMediaControler::openMedia(fs::path path){
     m_path = path;
-    if(m_codec.openFile(path.c_str())){
+    if(m_codec.openFile(path.c_str())<0){
+        m_codec.closeFile();
         haveFile = false;
         return;
     }
@@ -101,7 +102,13 @@ void SparkMediaControler::openMedia(fs::path path){
         emit onImageDone();
     } else {
         delete image_frame;
-        image_frame = new QImage(QImage(Path::applicationPath("images/icon.png").toString()).convertToFormat(QImage::Format_RGB32));
+        QImage srcImage(Path::applicationPath("images/icon.png").toString());
+        srcImage = srcImage.convertToFormat(QImage::Format_ARGB32);
+        image_frame = new QImage(srcImage.size(), QImage::Format_RGB32);
+        image_frame->fill(Qt::black);
+        QPainter painter(image_frame);
+        painter.drawImage(0, 0, srcImage);
+        painter.end();
         emit onImageDone();
     }
 
@@ -164,13 +171,18 @@ void SparkMediaControler::addMedia(fs::path path, int index)
         }
         openMedia(play_point->c_str());
     }
-    
+    emit onPlayListChange();
 }
 
 void SparkMediaControler::removeMedia(fs::path path)
 {
     for (auto i = play_list.begin(); i != play_list.end(); i++)
     {
+        if (*i != path)
+        {
+            continue;
+        }
+        
         if (i==play_point)
         {
             bool st = getStatus();
@@ -185,13 +197,30 @@ void SparkMediaControler::removeMedia(fs::path path)
                 {
                     play();
                 }
-            
+            } else {
+                openMedia(play_point->c_str());
+                if (st) // 若果是播放中那就恢复播放
+                {
+                    play();
+                }
             }
+            
         
+        } else {
+            play_list.erase(i);
         }
     
     }
+    emit onPlayListChange();
+}
 
+void SparkMediaControler::removeAllMedia()
+{
+    while (!play_list.empty())
+    {
+        play_list.pop_front();
+    }
+    play_point = play_list.begin();
 }
 
 std::deque<fs::path> *SparkMediaControler::getPlayList()
@@ -312,7 +341,7 @@ void SparkMediaControler::playThead(int step)
             }
             SDL_PauseAudioDevice(audio_device_id,0);
         }
-        qDebug() <<"当前SDL audio_spec.samples: "<< audio_spec.samples;
+        //qDebug() <<"当前SDL audio_spec.samples: "<< audio_spec.samples;
         if (is_step)
         {
             if (step==0){

@@ -15,19 +15,29 @@ Sparkplayer::Sparkplayer()
     connect(DGuiApplicationHelper::instance(), &DGuiApplicationHelper::themeTypeChanged, this, &Sparkplayer::slotThemeTypeChanged);
     //connect(media_controler,&SparkMediaControler::onImageDone,this,&Sparkplayer::showimg);
     connect(video_box,&VideoBox::onFullscreen,this,&Sparkplayer::slotFullscreen);
+    connect(video_box,&VideoBox::onNeedShow,this,[&](){hideControlers(false);title_bar->setHide(false);});
+    connect(video_box,&VideoBox::onNeedHide,this,[&](){hideControlers(true);title_bar->setHide(true);});
     connect(fullscreen_button,&DPushButton::clicked,[&](){video_box->fullscreen(false);});
     
     slotThemeTypeChanged();
 
 
-    addMediaPage(PageData{"主页","shit","","",Box},-1);
+    addMediaPage(PageData{"主页","","","",Box},-1);
     addMediaPage(PageData{"音乐","Content2","/home/"+QString(std::getenv("USER"))+"/Music","",Box},-1);
     addMediaPage(PageData{"视频","Content3","/home/"+QString(std::getenv("USER"))+"/Videos","",Box},-1);
+    for (auto i : SparkSettings::getInstance()->getMediaLibraries())
+    {
+        QString dir = i.c_str();
+        if (!dir.isEmpty()) {
+            QString title = QFileInfo(dir).fileName();
+            addMediaPage(PageData{ title, "", dir, "", Box }, -1);
+        }
+    }
 }
 
 Sparkplayer::~Sparkplayer()
 {
-    delete media_controler;
+    
 }
 
 void Sparkplayer::setupUI()
@@ -185,6 +195,7 @@ void Sparkplayer::setupUI()
     controlers->raise(); // 置顶 controlers
 
     volume_box = new VolumeBox(controlers); // 配置音量按键
+    play_list_button = new PlayListButton(controlers); // 配置播放列表
     video_box = new VideoBox(this);
     video_box->raise();
 }
@@ -197,11 +208,14 @@ void Sparkplayer::resizeEvent(QResizeEvent *event)
     controlers->setFixedWidth(width());
     controlers->move(0,height()-80);
     volume_box->resizebox();
+    play_list_button->resizeEvent(event);
 }
 
 void Sparkplayer::reloadMediaPage()
 {
+    // TODO 优化删除逻辑
     int index = 0;
+    
     for(QList<PageData>::iterator data = page_data.begin();data < page_data.end();data++){
         PageData *pdata = &(*data);
         int i =media_list_buttons->buttons().size();
@@ -210,7 +224,24 @@ void Sparkplayer::reloadMediaPage()
             b->setFixedHeight(50);
             b->setFixedWidth(180);
             b->setCheckable(true);
-            b->setIcon(Path::applicationPath("images/bg.png").toString());
+            b->setIcon(Path::applicationPath("images/icon.png").toString());
+            QTimer::singleShot(100,this,[b](){
+                QDir dir(b->getData()->path);
+                QStringList fileList = dir.entryList(QDir::Files);
+                if (!fileList.isEmpty()) {
+                    QString filePath = dir.absoluteFilePath(fileList.first());
+                    int w = Codec::getTitleImgWidth(fs::path(filePath.toStdString()));
+                    int h = Codec::getTitleImgHeight(fs::path(filePath.toStdString()));
+                    QSize size(w,h);
+                    QImage img(size,QImage::Format_RGB32);
+                    uint8_t* imgdata[1] = { reinterpret_cast<uint8_t*>(img.bits()) };
+                    int linesize[1] = { static_cast<int>(img.bytesPerLine()) };
+                    int res = Codec::getTitleImg(fs::path(filePath.toStdString()),size.width(),size.height(),imgdata,linesize);
+                    if (res >= 0) {
+                        b->setIcon(ImageTools::toPixmap(img,{b->height()-10,b->height()-10},6));
+                    }
+                }
+            });
             b->setData(pdata);
             b->setStyleSheet(".QPushButton{background-color:rgba(196, 189, 189, 0); border-radius: 10px;}\
                                 .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}\
@@ -227,6 +258,11 @@ void Sparkplayer::reloadMediaPage()
         }
         index++;
     }
+    for (auto i = media_list_buttons->buttons().begin()+index; i < media_list_buttons->buttons().end(); i++)
+    {  
+        (*i)->deleteLater();
+        media_list_buttons->removeButton((*i));
+    }
     
 }
 
@@ -242,6 +278,20 @@ void Sparkplayer::addMediaPage(PageData data, int index)
     
     reloadMediaPage();
     qDebug() << "add page " << data.title;
+}
+
+void Sparkplayer::removeMediaPage(MediaListButton *b)
+{
+    for (QList<PageData>::iterator d = page_data.begin(); d != page_data.end(); d++) {
+        if (d->path == ((MediaListButton *)b)->getData()->path)
+        {
+            page_data.erase(d);
+            break;
+        }
+        
+    }
+
+    reloadMediaPage();
 }
 
 void Sparkplayer::setMainPage(QAbstractButton *button)
@@ -268,12 +318,63 @@ void Sparkplayer::hideControlers(bool t)
     if (t)
     {
         animation->setStartValue(controlers->geometry());
-        animation->setEndValue(QRect(0,height()-80,controlers->width(),80));
-    } else {
-        animation->setStartValue(controlers->geometry());
         animation->setEndValue(QRect(0,height(),controlers->width(),80));
+    } else {
+
+        animation->setStartValue(controlers->geometry());
+        animation->setEndValue(QRect(0,height()-80,controlers->width(),80));
     }
     animation->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void Sparkplayer::mouseReleaseEvent(QMouseEvent *event) {
+    if (event->button() == Qt::RightButton) {
+        for (auto b : media_list_buttons->buttons()) {
+            int index = media_list_buttons->buttons().indexOf(b);
+            if (b->underMouse()&&index>2)
+            {
+                QMenu contextMenu(this);
+                contextMenu.addAction(tr("删除媒体库"), this, [this,b](){
+                    removeMediaPage((MediaListButton *)b);
+                    std::list<fs::path> paths;
+                    int index = 0;
+                    for (auto i : page_data) {
+                        if (index>=3) paths.push_back(fs::path(i.path.toStdString()));
+                        index++;
+                    }
+                    SparkSettings::getInstance()->setMediaLibraries(paths);
+                    
+                });
+                contextMenu.exec(event->globalPos());
+                break;
+            }
+            
+        }
+        if (media_list_context->underMouse())
+        {
+            QMenu contextMenu(this);
+            contextMenu.addAction(tr("添加媒体库"), this, [this](){
+                QString dir = QFileDialog::getExistingDirectory(this, tr("选择媒体目录"), QDir::homePath());
+                if (!dir.isEmpty()) {
+                    QString title = QFileInfo(dir).fileName();
+                    addMediaPage(PageData{ title, "", dir, "", Box }, -1);
+
+                    std::list<fs::path> paths;
+                    int index = 0;
+                    for (auto i : page_data) {
+                        if (index>=3) paths.push_back(fs::path(i.path.toStdString()));
+                        index++;
+                    }
+                    SparkSettings::getInstance()->setMediaLibraries(paths);
+                
+                }
+            });
+            contextMenu.exec(event->globalPos());
+        }
+        
+    } else {
+        DMainWindow::mousePressEvent(event);
+    }
 }
 
 void Sparkplayer::slotFullscreen(bool t)
@@ -281,13 +382,13 @@ void Sparkplayer::slotFullscreen(bool t)
     if (t)
     {
         title_bar->raise();
-        title_bar->setStyleSheet(".QWidget{background-color:rgba(255, 255, 255, 0.2);}");
+        title_bar->setStyleSheet(".QWidget{background-color:rgba(128, 128, 128, 0.2);}");
         controlers->raise();
-        controlers->setStyleSheet(".QWidget{background-color:rgba(255, 255, 255, 0.2);}");
+        controlers->setStyleSheet(".QWidget{background-color:rgba(128, 128, 128, 0.2);}");
         volume_box->raise();
     } else {
         video_box->raise();
-        controlers->setStyleSheet(".QWidget{background-color:rgba(255, 255, 255, 0);}");
+        controlers->setStyleSheet(".QWidget{background-color:rgba(56, 56, 56, 0);}");
         title_bar->setStyleSheet(".QWidget{background-color:rgba(0, 0, 0, 0);}");
     }
     
