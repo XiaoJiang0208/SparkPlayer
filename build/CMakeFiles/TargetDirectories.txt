@@ -1,0 +1,9 @@
+/home/xiaojiang/DEV/SparkPlayer/build/CMakeFiles/SparkPlayer.dir
+/home/xiaojiang/DEV/SparkPlayer/build/CMakeFiles/edit_cache.dir
+/home/xiaojiang/DEV/SparkPlayer/build/CMakeFiles/rebuild_cache.dir
+/home/xiaojiang/DEV/SparkPlayer/build/CMakeFiles/list_install_components.dir
+/home/xiaojiang/DEV/SparkPlayer/build/CMakeFiles/install.dir
+/home/xiaojiang/DEV/SparkPlayer/build/CMakeFiles/install/local.dir
+/home/xiaojiang/DEV/SparkPlayer/build/CMakeFiles/install/strip.dir
+/home/xiaojiang/DEV/SparkPlayer/build/CMakeFiles/SparkPlayer_autogen_timestamp_deps.dir
+/home/xiaojiang/DEV/SparkPlayer/build/CMakeFiles/SparkPlayer_autogen.dir

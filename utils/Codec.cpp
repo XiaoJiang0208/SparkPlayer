@@ -10,6 +10,8 @@ Codec::Codec(/* args */)
     m_isDecoding = false;
     m_isEnd = false;
     overload = false;
+
+    
     qDebug() << av_version_info();
 }
 
@@ -797,8 +799,8 @@ double Codec::getSeekTime()
 void Codec::setSeekTime(double time)
 {
     // TODO 修复音频包堆积问题
-    std::lock_guard<std::mutex> lock(m_audPacketQueueMutex);
-    std::lock_guard<std::mutex> lock2(m_vidPacketQueueMutex);
+    //std::lock_guard<std::mutex> lock(m_audPacketQueueMutex);
+    //std::lock_guard<std::mutex> lock2(m_vidPacketQueueMutex);
     std::lock_guard<std::mutex> lock3(m_avFormatCtxMutex);
 
     if (!m_pAvFormatCtx || m_audStreamIndex < 0) {
@@ -806,23 +808,32 @@ void Codec::setSeekTime(double time)
         return;
     }
 
+    m_audPacketQueueMutex.lock();
     while (!m_audPacketQueue.empty())
     {
         av_packet_free(&(m_audPacketQueue.front()));
         m_audPacketQueue.pop();
     }
+    m_audPacketQueueMutex.unlock();
     while (!m_audBuffer.empty())
     {
         av_frame_free(&(m_audBuffer.front()));
         m_audBuffer.pop();
     }
-    
+    m_vidPacketQueueMutex.lock();
     while (!m_vidPacketQueue.empty())
     {
         av_packet_free(&(m_vidPacketQueue.front()));
         m_vidPacketQueue.pop();
     }
-
+    m_vidPacketQueueMutex.unlock();
+    // 刷新解码器内部缓存，避免残留数据
+    if (m_pAudCodecCtx) {
+        avcodec_flush_buffers(m_pAudCodecCtx);
+    }
+    if (m_pVidCodecCtx) {
+        avcodec_flush_buffers(m_pVidCodecCtx);
+    }
     int64_t pts;
     int res;
     if (m_mediaType == video) {

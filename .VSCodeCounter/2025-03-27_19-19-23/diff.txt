@@ -1,0 +1,76 @@
+Date : 2025-03-27 19:19:23
+Directory : /home/xiaojiang/DEV/SparkPlayer
+Total : 36 files,  675 codes, 79 comments, 118 blanks, all 872 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| C++      |         20 |        601 |         79 |        118 |        798 |
+| JSON     |         12 |         60 |          0 |          0 |         60 |
+| CMake    |          4 |         14 |          0 |          0 |         14 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++--------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                         | files      | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                            |         36 |        675 |         79 |        118 |        872 |
+| . (Files)                                                                                                    |          5 |        228 |         59 |         52 |        339 |
+| build                                                                                                        |         16 |         73 |          0 |          0 |         73 |
+| build (Files)                                                                                                |          1 |         12 |          0 |          0 |         12 |
+| build/.cmake                                                                                                 |         10 |         34 |          0 |          0 |         34 |
+| build/.cmake/api                                                                                             |         10 |         34 |          0 |          0 |         34 |
+| build/.cmake/api/v1                                                                                          |         10 |         34 |          0 |          0 |         34 |
+| build/.cmake/api/v1/reply                                                                                    |         10 |         34 |          0 |          0 |         34 |
+| build/CMakeFiles                                                                                             |          4 |         26 |          0 |          0 |         26 |
+| build/CMakeFiles (Files)                                                                                     |          1 |          6 |          0 |          0 |          6 |
+| build/CMakeFiles/SparkPlayer.dir                                                                             |          2 |          6 |          0 |          0 |          6 |
+| build/CMakeFiles/SparkPlayer_autogen.dir                                                                     |          1 |         14 |          0 |          0 |         14 |
+| build/SparkPlayer_autogen                                                                                    |          1 |          1 |          0 |          0 |          1 |
+| utils                                                                                                        |          3 |        170 |         17 |         21 |        208 |
+| widgets                                                                                                      |         12 |        204 |          3 |         45 |        252 |
++--------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++--------------------------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                                                                     | language | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| /home/xiaojiang/DEV/SparkPlayer/CMakeLists.txt                                                               | CMake    |          2 |          0 |          0 |          2 |
+| /home/xiaojiang/DEV/SparkPlayer/SparkMediaControler.cpp                                                      | C++      |        163 |          6 |         35 |        204 |
+| /home/xiaojiang/DEV/SparkPlayer/SparkMediaControler.h                                                        | C++      |         21 |         53 |          9 |         83 |
+| /home/xiaojiang/DEV/SparkPlayer/build/.cmake/api/v1/reply/cmakeFiles-v1-456cf497b6b009e2b6b2.json            | JSON     |        681 |          0 |          1 |        682 |
+| /home/xiaojiang/DEV/SparkPlayer/build/.cmake/api/v1/reply/cmakeFiles-v1-e854d4ec5fa28f7bab0b.json            | JSON     |       -675 |          0 |         -1 |       -676 |
+| /home/xiaojiang/DEV/SparkPlayer/build/.cmake/api/v1/reply/codemodel-v2-ac85d17328409b4b548e.json             | JSON     |        -79 |          0 |         -1 |        -80 |
+| /home/xiaojiang/DEV/SparkPlayer/build/.cmake/api/v1/reply/codemodel-v2-cb22e730040005e71c5d.json             | JSON     |         79 |          0 |          1 |         80 |
+| /home/xiaojiang/DEV/SparkPlayer/build/.cmake/api/v1/reply/directory-.-Debug-4f374bb98d12a43bbcf5.json        | JSON     |        -45 |          0 |         -1 |        -46 |
+| /home/xiaojiang/DEV/SparkPlayer/build/.cmake/api/v1/reply/directory-.-Debug-89f038b4553a8e9bc6a7.json        | JSON     |         45 |          0 |          1 |         46 |
+| /home/xiaojiang/DEV/SparkPlayer/build/.cmake/api/v1/reply/index-2025-03-19T07-52-22-0266.json                | JSON     |       -132 |          0 |         -1 |       -133 |
+| /home/xiaojiang/DEV/SparkPlayer/build/.cmake/api/v1/reply/index-2025-03-27T09-11-06-0494.json                | JSON     |        132 |          0 |          1 |        133 |
+| /home/xiaojiang/DEV/SparkPlayer/build/.cmake/api/v1/reply/target-SparkPlayer-Debug-2eca8a6e3080b9a0c932.json | JSON     |        918 |          0 |          1 |        919 |
+| /home/xiaojiang/DEV/SparkPlayer/build/.cmake/api/v1/reply/target-SparkPlayer-Debug-e841cddc53cf559f2909.json | JSON     |       -890 |          0 |         -1 |       -891 |
+| /home/xiaojiang/DEV/SparkPlayer/build/CMakeFiles/SparkPlayer.dir/DependInfo.cmake                            | CMake    |          2 |          0 |          0 |          2 |
+| /home/xiaojiang/DEV/SparkPlayer/build/CMakeFiles/SparkPlayer.dir/cmake_clean.cmake                           | CMake    |          4 |          0 |          0 |          4 |
+| /home/xiaojiang/DEV/SparkPlayer/build/CMakeFiles/SparkPlayer_autogen.dir/AutogenInfo.json                    | JSON     |         14 |          0 |          0 |         14 |
+| /home/xiaojiang/DEV/SparkPlayer/build/CMakeFiles/VerifyGlobs.cmake                                           | CMake    |          6 |          0 |          0 |          6 |
+| /home/xiaojiang/DEV/SparkPlayer/build/SparkPlayer_autogen/mocs_compilation.cpp                               | C++      |          1 |          0 |          0 |          1 |
+| /home/xiaojiang/DEV/SparkPlayer/build/compile_commands.json                                                  | JSON     |         12 |          0 |          0 |         12 |
+| /home/xiaojiang/DEV/SparkPlayer/sparkplayer.cpp                                                              | C++      |         34 |          0 |          6 |         40 |
+| /home/xiaojiang/DEV/SparkPlayer/sparkplayer.h                                                                | C++      |          8 |          0 |          2 |         10 |
+| /home/xiaojiang/DEV/SparkPlayer/utils/Codec.cpp                                                              | C++      |        142 |          9 |         14 |        165 |
+| /home/xiaojiang/DEV/SparkPlayer/utils/Codec.h                                                                | C++      |         25 |          8 |          8 |         41 |
+| /home/xiaojiang/DEV/SparkPlayer/utils/ImageTools.cpp                                                         | C++      |          3 |          0 |         -1 |          2 |
+| /home/xiaojiang/DEV/SparkPlayer/widgets/MainPage.cpp                                                         | C++      |          9 |          1 |          0 |         10 |
+| /home/xiaojiang/DEV/SparkPlayer/widgets/MainPage.h                                                           | C++      |          1 |          0 |          0 |          1 |
+| /home/xiaojiang/DEV/SparkPlayer/widgets/MediaBox.cpp                                                         | C++      |         14 |          0 |          2 |         16 |
+| /home/xiaojiang/DEV/SparkPlayer/widgets/MediaBox.h                                                           | C++      |          1 |          0 |          2 |          3 |
+| /home/xiaojiang/DEV/SparkPlayer/widgets/TimeLine.cpp                                                         | C++      |         43 |          0 |          7 |         50 |
+| /home/xiaojiang/DEV/SparkPlayer/widgets/TimeLine.h                                                           | C++      |          3 |          0 |          0 |          3 |
+| /home/xiaojiang/DEV/SparkPlayer/widgets/TitleBar.cpp                                                         | C++      |         10 |          0 |          1 |         11 |
+| /home/xiaojiang/DEV/SparkPlayer/widgets/TitleBar.h                                                           | C++      |        -15 |         -2 |         -3 |        -20 |
+| /home/xiaojiang/DEV/SparkPlayer/widgets/VideoBox.cpp                                                         | C++      |         62 |          4 |         10 |         76 |
+| /home/xiaojiang/DEV/SparkPlayer/widgets/VideoBox.h                                                           | C++      |         24 |          0 |         11 |         35 |
+| /home/xiaojiang/DEV/SparkPlayer/widgets/VolumeBox.cpp                                                        | C++      |         33 |          0 |          6 |         39 |
+| /home/xiaojiang/DEV/SparkPlayer/widgets/VolumeBox.h                                                          | C++      |         19 |          0 |          9 |         28 |
+| Total                                                                                                        |          |        675 |         79 |        118 |        872 |
++--------------------------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+

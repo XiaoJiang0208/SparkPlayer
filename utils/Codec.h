@@ -11,6 +11,7 @@ extern "C" {
 #include <libswresample/swresample.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
+#include <libavfilter/avfilter.h>
 }
 
 #include <thread>
@@ -93,6 +94,7 @@ private:
     int32_t m_picWidth;
 
     AVCodecContext *m_pAudCodecCtx; // 音频编解码上下文
+    
     // 分配 SwrContext
     SwrContext *pSwrCtx;
     int32_t m_audStreamIndex; // 音频流索引
