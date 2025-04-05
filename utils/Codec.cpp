@@ -11,7 +11,10 @@ Codec::Codec(/* args */)
     m_isEnd = false;
     overload = false;
 
-    
+    filter_graph = nullptr;
+    buffersrc_ctx = nullptr;
+    buffersink_ctx = nullptr;
+    playback_speed = 1.0; // 默认正常速度
     qDebug() << av_version_info();
 }
 
@@ -21,8 +24,7 @@ Codec::~Codec()
 }
 
 int32_t Codec::openFile(const char *path){
-    std::lock_guard<std::mutex> lock1(m_audPacketQueueMutex);
-    std::lock_guard<std::mutex> lock2(m_vidPacketQueueMutex);
+    stopDecoding();
     m_sync.InitClock();
     const AVCodec *pVidCodec = nullptr; // 视频编解码器
     const AVCodec *pAudCodec = nullptr; // 音频编解码器
@@ -162,7 +164,12 @@ void Codec::closeFile(){
         avcodec_free_context(&m_pAudCodecCtx);
         m_pAudCodecCtx = nullptr;
     }
-
+    if (filter_graph) { // 释放音频滤镜
+        avfilter_graph_free(&filter_graph);
+        filter_graph = nullptr;
+        buffersrc_ctx = nullptr;
+        buffersink_ctx = nullptr;
+    }
     while (!m_audBuffer.empty())
     {
         av_frame_free(&(m_audBuffer.front()));
@@ -228,7 +235,6 @@ void Codec::changeAudioStream(int32_t i)
 }
 
 int32_t Codec::readPacket(){
-    std::lock_guard<std::mutex> lock(m_avFormatCtxMutex);    
     
     int res = 0;
 
@@ -284,9 +290,11 @@ int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue, int stream_ind
         }
 
         // 将pts转换为秒数，假设m_vidTimeBase为视频time_base
-        double videoPts = pOutFrame->pts * av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base);
+        double videoPts = pOutFrame->pts * av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base)/playback_speed;
         // 计算与音频主时钟的差值
-        double delay = videoPts - m_sync.getClock();
+        double delay = (videoPts - m_sync.getClock());
+        qDebug()<<"videoPts:"<<videoPts<<"delay:"<<delay;
+        qDebug()<<"video clock:"<<m_sync.getClock();
         if (delay < -1.0) {
             overload = true;
             qDebug()<<"nonono"<<delay;
@@ -309,15 +317,16 @@ int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue, int stream_ind
         {
             if (delay >1.0) qDebug()<<"fix!!!!";
             qDebug()<<"nonono"<<delay;
-            av_frame_free(&pOutFrame);
-            if (pPacket) av_packet_free(&pPacket);
-            packetQueue.pop();
-            return 0;
+            // av_frame_free(&pOutFrame);
+            // if (pPacket) av_packet_free(&pPacket);
+            // packetQueue.pop();
+            // return 0;
+            av_usleep(static_cast<unsigned int>(delay * 1000000));
         } 
         else if (delay > 0.0) // 可设置阈值，根据实际情况丢弃过期帧
         {
             // 等待delay对应的微秒数，此处使用av_usleep（注意单位为微秒
-            // qDebug()<<"666:"<<delay;
+             qDebug()<<"666:"<<delay;
             av_usleep(static_cast<unsigned int>(delay * 1000000));
         }
 
@@ -542,6 +551,100 @@ int32_t Codec::initAudioContext()
         return res;
     }
 
+    
+    return 0;
+}
+
+int32_t Codec::initAudioFliter()
+{
+    // 初始化滤镜
+    filter_graph = avfilter_graph_alloc();
+    if (!filter_graph) {
+        qWarning() << "分配滤镜图失败";
+        swr_free(&pSwrCtx);
+        return -1;
+    }
+
+    // 输入滤镜：abuffer
+    const AVFilter *abuffer = avfilter_get_by_name("abuffer");
+    if (!abuffer) {
+        qWarning() << "找不到 abuffer 滤镜";
+        return -1;
+    }
+
+    AVCodecParameters *par = m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar;
+    char args[512];
+    snprintf(args, sizeof(args),
+             "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%" PRIx64,
+             m_pAvFormatCtx->streams[m_audStreamIndex]->time_base.num,
+             m_pAvFormatCtx->streams[m_audStreamIndex]->time_base.den,
+             par->sample_rate,
+             av_get_sample_fmt_name((AVSampleFormat)par->format),
+             par->ch_layout.u.mask);
+
+    int res = avfilter_graph_create_filter(&buffersrc_ctx, abuffer, "in", args, nullptr, filter_graph);
+    if (res < 0) {
+        qWarning() << "创建 abuffer 滤镜失败:" << res;
+        return -1;
+    }
+
+    // 变速滤镜：atempo
+    const AVFilter *atempo = avfilter_get_by_name("atempo");
+    if (!atempo) {
+        qWarning() << "找不到 atempo 滤镜";
+        return -1;
+    }
+
+    snprintf(args, sizeof(args), "tempo=%f", playback_speed);
+    AVFilterContext *atempo_ctx;
+    res = avfilter_graph_create_filter(&atempo_ctx, atempo, "atempo", args, nullptr, filter_graph);
+    if (res < 0) {
+        qWarning() << "创建 atempo 滤镜失败:" << res;
+        return -1;
+    }
+
+    // 输出滤镜：abuffersink
+    const AVFilter *abuffersink = avfilter_get_by_name("abuffersink");
+    if (!abuffersink) {
+        qWarning() << "找不到 abuffersink 滤镜";
+        return -1;
+    }
+
+    res = avfilter_graph_create_filter(&buffersink_ctx, abuffersink, "out", nullptr, nullptr, filter_graph);
+    if (res < 0) {
+        qWarning() << "创建 abuffersink 滤镜失败:" << res;
+        return -1;
+    }
+
+    // 配置输出格式（与 SwrContext 输入一致）
+    int out_sample_rates[] = {m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->sample_rate, -1};
+    //av_channel_layout_default(&out_ch_layout, m_outAudSetting.channel_count);
+    int64_t out_channel_layouts[] = {m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->ch_layout.u.mask, -1};
+    int out_formats[] = {m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->format, -1};
+
+    av_opt_set_int_list(buffersink_ctx, "sample_rates", out_sample_rates, -1, AV_OPT_SEARCH_CHILDREN);
+    av_opt_set_int_list(buffersink_ctx, "channel_layouts", out_channel_layouts, -1, AV_OPT_SEARCH_CHILDREN);
+    av_opt_set_int_list(buffersink_ctx, "sample_fmts", out_formats, -1, AV_OPT_SEARCH_CHILDREN);
+
+    // 链接滤镜
+    res = avfilter_link(buffersrc_ctx, 0, atempo_ctx, 0);
+    if (res < 0) {
+        qWarning() << "链接 abuffer 到 atempo 失败:" << res;
+        return -1;
+    }
+    res = avfilter_link(atempo_ctx, 0, buffersink_ctx, 0);
+    if (res < 0) {
+        qWarning() << "链接 atempo 到 abuffersink 失败:" << res;
+        return -1;
+    }
+
+    // 配置滤镜图
+    res = avfilter_graph_config(filter_graph, nullptr);
+    if (res < 0) {
+        qWarning() << "配置滤镜图失败:" << res;
+        return -1;
+    }
+
     return 0;
 }
 
@@ -602,7 +705,7 @@ int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &
                                        out_samples,
                                        pInFrame->data,
                                        in_samples);
-    m_outAudSetting.sample = converted_samples;
+    m_outAudSetting.sample = m_outAudSetting.sample<converted_samples ? converted_samples : m_outAudSetting.sample;
     if (converted_samples < 0) {
         qWarning() << "重采样转换失败:" << converted_samples;
         av_freep(&data[0]);
@@ -637,6 +740,7 @@ int32_t Codec::audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &
 
 void Codec::threadReadPacket()
 {
+    std::lock_guard<std::mutex> lock(m_avFormatCtxMutex);
     qDebug()<<"readin";
     while (m_isDecoding)
     {
@@ -655,12 +759,11 @@ void Codec::threadReadPacket()
 
 void Codec::threadDecodeVideo()
 {
+    std::lock_guard<std::mutex> lock(m_vidPacketQueueMutex);
     qDebug()<<"vidin";
     while (m_isDecoding)
     {
-        m_vidPacketQueueMutex.lock();
         packetDecoder(m_vidPacketQueue,m_vidStreamIndex);
-        m_vidPacketQueueMutex.unlock();
     }
     qDebug()<<"vidout";
     
@@ -668,13 +771,13 @@ void Codec::threadDecodeVideo()
 
 void Codec::threadDecodeAudio()
 {
+    std::lock_guard<std::mutex> lock(m_audPacketQueueMutex);
     initAudioContext();
+    initAudioFliter();
     qDebug()<<"audin";
     while (m_isDecoding)
     {
-        m_audPacketQueueMutex.lock();
         packetDecoder(m_audPacketQueue,m_audStreamIndex);
-        m_audPacketQueueMutex.unlock();
     }
     qDebug()<<"audout";
     swr_free(&pSwrCtx);
@@ -689,6 +792,7 @@ void Codec::startDecoding()
     
     m_isDecoding = true;
     m_isEnd = false;
+    m_outAudSetting.sample=0;
     std::thread tRead(&Codec::threadReadPacket,this);
     if (tRead.joinable())
     {
@@ -711,6 +815,9 @@ void Codec::startDecoding()
 
 void Codec::stopDecoding(){
     m_isDecoding = false;
+    std::lock_guard<std::mutex> lock(m_audPacketQueueMutex);
+    std::lock_guard<std::mutex> lock2(m_vidPacketQueueMutex);
+    std::lock_guard<std::mutex> lock3(m_avFormatCtxMutex);
 }
 
 bool Codec::isEnd()
@@ -739,13 +846,35 @@ int32_t Codec::getFinalAudFrame(uint8_t *data[1], int linesize[1])
 
     int res=0;
     if(m_audBuffer.empty()) return -1;
-    res = audioFrameConvert(m_audBuffer.front(),m_outAudSetting,data,linesize);
-    
-        double audioPts = m_audBuffer.front()->pts * av_q2d(m_pAvFormatCtx->streams[m_audStreamIndex]->time_base);
-        
-    m_sync.setClock(audioPts);
-    av_frame_free(&(m_audBuffer.front()));
+    // 从缓冲区取出一帧
+    AVFrame *frame = m_audBuffer.front();
     m_audBuffer.pop();
+    filter_graph_mutex.lock();
+    res = av_buffersrc_add_frame(buffersrc_ctx, frame);
+    if (res < 0) {
+        qWarning() << "送入滤镜失败:" << res;
+        av_frame_free(&frame);
+        filter_graph_mutex.unlock();
+        return -1;
+    }
+    // 从滤镜获取处理后的帧
+    AVFrame *filt_frame = av_frame_alloc();
+    res = av_buffersink_get_frame(buffersink_ctx, filt_frame);
+    if (res < 0) {
+        qWarning() << "从滤镜获取帧失败:" << res;
+        av_frame_free(&filt_frame);
+        filter_graph_mutex.unlock();
+        return -1;
+    }
+    filter_graph_mutex.unlock();
+    res = audioFrameConvert(filt_frame,m_outAudSetting,data,linesize);
+    double audioPts = filt_frame->pts * av_q2d(m_pAvFormatCtx->streams[m_audStreamIndex]->time_base);
+    //audioPts /= playback_speed; // 调整 PTS 以匹配倍速
+    m_sync.setClock(audioPts);
+    qDebug()<<"audio:"<<audioPts;
+    qDebug()<<"audio clock:"<<m_sync.getClock();
+    av_frame_free(&filt_frame);
+    av_frame_free(&frame);
     return res;
 }
 
@@ -788,7 +917,8 @@ OutAudioFrameSetting Codec::getRawAudioSettings()
 
 int Codec::getAudioSamples()
 {
-    return m_outAudSetting.sample;
+    
+    return m_outAudSetting.sample%2 ? m_outAudSetting.sample-1 : m_outAudSetting.sample;
 }
 
 double Codec::getSeekTime()
@@ -799,42 +929,40 @@ double Codec::getSeekTime()
 void Codec::setSeekTime(double time)
 {
     // TODO 修复音频包堆积问题
-    //std::lock_guard<std::mutex> lock(m_audPacketQueueMutex);
-    //std::lock_guard<std::mutex> lock2(m_vidPacketQueueMutex);
-    std::lock_guard<std::mutex> lock3(m_avFormatCtxMutex);
+    stopDecoding();
 
     if (!m_pAvFormatCtx || m_audStreamIndex < 0) {
         qWarning() << "无效的格式上下文或音频流索引";
         return;
     }
 
-    m_audPacketQueueMutex.lock();
+    //m_audPacketQueueMutex.lock();
     while (!m_audPacketQueue.empty())
     {
         av_packet_free(&(m_audPacketQueue.front()));
         m_audPacketQueue.pop();
     }
-    m_audPacketQueueMutex.unlock();
+    //m_audPacketQueueMutex.unlock();
     while (!m_audBuffer.empty())
     {
         av_frame_free(&(m_audBuffer.front()));
         m_audBuffer.pop();
     }
-    m_vidPacketQueueMutex.lock();
+    //m_vidPacketQueueMutex.lock();
     while (!m_vidPacketQueue.empty())
     {
         av_packet_free(&(m_vidPacketQueue.front()));
         m_vidPacketQueue.pop();
     }
-    m_vidPacketQueueMutex.unlock();
-    // 刷新解码器内部缓存，避免残留数据
+    //m_vidPacketQueueMutex.unlock();
+    //刷新解码器内部缓存，避免残留数据
     if (m_pAudCodecCtx) {
         avcodec_flush_buffers(m_pAudCodecCtx);
     }
     if (m_pVidCodecCtx) {
         avcodec_flush_buffers(m_pVidCodecCtx);
     }
-    int64_t pts;
+    double pts;
     int res;
     if (m_mediaType == video) {
         pts = time / av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base);
@@ -847,11 +975,28 @@ void Codec::setSeekTime(double time)
     if (res < 0)
     {
         qWarning() << "seek失败";
-        return;
+    }
+    qDebug()<<"audio:"<<pts;
+    m_sync.setClock(pts);
+    startDecoding();
+}
+
+void Codec::setPlaybackSpeed(double speed)
+{
+    stopDecoding();
+    // 检查速度范围（atempo 支持 0.5x 到 2.0x）
+    if (speed < 0.5) {
+        playback_speed = 0.5;
+    } else if (speed > 2.0) {
+        playback_speed = 2.0;
+    }else {
+        playback_speed = speed;
     }
     
-    m_sync.setClock(pts);
-    
+    std::lock_guard<std::mutex> lock(filter_graph_mutex);
+    avfilter_graph_free(&filter_graph);
+    initAudioFliter();
+    startDecoding();
 }
 
 double Codec::getTime()

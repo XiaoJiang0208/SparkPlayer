@@ -336,6 +336,9 @@ pkgcfg_lib_ffmpeg_atomic:FILEPATH=pkgcfg_lib_ffmpeg_atomic-NOTFOUND
 pkgcfg_lib_ffmpeg_avcodec:FILEPATH=/usr/local/ffmpeg/lib/libavcodec.a
 
 //Path to a library.
+pkgcfg_lib_ffmpeg_avfilter:FILEPATH=/usr/local/ffmpeg/lib/libavfilter.a
+
+//Path to a library.
 pkgcfg_lib_ffmpeg_avformat:FILEPATH=/usr/local/ffmpeg/lib/libavformat.a
 
 //Path to a library.
@@ -346,6 +349,9 @@ pkgcfg_lib_ffmpeg_lzma:FILEPATH=/usr/lib/x86_64-linux-gnu/liblzma.so
 
 //Path to a library.
 pkgcfg_lib_ffmpeg_m:FILEPATH=/usr/lib/x86_64-linux-gnu/libm.so
+
+//Path to a library.
+pkgcfg_lib_ffmpeg_postproc:FILEPATH=/usr/local/ffmpeg/lib/libpostproc.a
 
 //Path to a library.
 pkgcfg_lib_ffmpeg_swresample:FILEPATH=/usr/local/ffmpeg/lib/libswresample.a
@@ -530,7 +536,7 @@ PKG_CONFIG_EXECUTABLE-ADVANCED:INTERNAL=1
 _CMAKE_LINKER_PUSHPOP_STATE_SUPPORTED:INTERNAL=TRUE
 //CMAKE_INSTALL_PREFIX during last run
 _GNUInstallDirs_LAST_CMAKE_INSTALL_PREFIX:INTERNAL=/usr/local
-__pkg_config_arguments_ffmpeg:INTERNAL=REQUIRED;IMPORTED_TARGET;libavcodec;libavformat;libavutil;libswscale;sdl2;SDL2_mixer
+__pkg_config_arguments_ffmpeg:INTERNAL=REQUIRED;IMPORTED_TARGET;libavcodec;libavformat;libavfilter;libavutil;libswscale;sdl2;SDL2_mixer
 __pkg_config_checked_ffmpeg:INTERNAL=1
 ffmpeg_CFLAGS:INTERNAL=-I/usr/local/ffmpeg/include;-I/usr/include;-I/usr/include/SDL2;-D_REENTRANT
 ffmpeg_CFLAGS_I:INTERNAL=
@@ -538,10 +544,10 @@ ffmpeg_CFLAGS_OTHER:INTERNAL=-D_REENTRANT
 ffmpeg_FOUND:INTERNAL=1
 ffmpeg_INCLUDEDIR:INTERNAL=
 ffmpeg_INCLUDE_DIRS:INTERNAL=/usr/local/ffmpeg/include;/usr/include;/usr/include/SDL2
-ffmpeg_LDFLAGS:INTERNAL=-L/usr/local/ffmpeg/lib;-lm;-lm;-lavformat;-lavcodec;-lm;-llzma;-lz;-lm;-lswresample;-lm;-lswscale;-lavutil;-pthread;-lm;-latomic;-lX11;-L/usr/lib/x86_64-linux-gnu;-lSDL2_mixer;-lSDL2
+ffmpeg_LDFLAGS:INTERNAL=-L/usr/local/ffmpeg/lib;-lm;-lm;-lm;-lm;-lavfilter;-lm;-lm;-lpostproc;-lm;-lavformat;-lm;-lm;-lavcodec;-lm;-llzma;-lz;-lm;-lswresample;-lm;-lswscale;-lavutil;-pthread;-lm;-latomic;-lX11;-L/usr/lib/x86_64-linux-gnu;-lSDL2_mixer;-lSDL2
 ffmpeg_LDFLAGS_OTHER:INTERNAL=-pthread
 ffmpeg_LIBDIR:INTERNAL=
-ffmpeg_LIBRARIES:INTERNAL=m;m;avformat;avcodec;m;lzma;z;m;swresample;m;swscale;avutil;m;atomic;X11;SDL2_mixer;SDL2
+ffmpeg_LIBRARIES:INTERNAL=m;m;m;m;avfilter;m;m;postproc;m;avformat;m;m;avcodec;m;lzma;z;m;swresample;m;swscale;avutil;m;atomic;X11;SDL2_mixer;SDL2
 ffmpeg_LIBRARY_DIRS:INTERNAL=/usr/local/ffmpeg/lib;/usr/lib/x86_64-linux-gnu
 ffmpeg_LIBS:INTERNAL=
 ffmpeg_LIBS_L:INTERNAL=
@@ -558,10 +564,10 @@ ffmpeg_STATIC_CFLAGS:INTERNAL=-I/usr/local/ffmpeg/include;-I/usr/include;-I/usr/
 ffmpeg_STATIC_CFLAGS_I:INTERNAL=
 ffmpeg_STATIC_CFLAGS_OTHER:INTERNAL=-D_REENTRANT
 ffmpeg_STATIC_INCLUDE_DIRS:INTERNAL=/usr/local/ffmpeg/include;/usr/include;/usr/include/SDL2
-ffmpeg_STATIC_LDFLAGS:INTERNAL=-L/usr/local/ffmpeg/lib;-lm;-lm;-lavformat;-lavcodec;-lm;-llzma;-lz;-lm;-lswresample;-lm;-lswscale;-lavutil;-pthread;-lm;-latomic;-lX11;-L/usr/lib/x86_64-linux-gnu;-lm;-lasound;-lm;-ldl;-lpthread;-lpulse;-pthread;-lsamplerate;-lX11;-lXext;-lXcursor;-lXi;-lXfixes;-lXrandr;-lXss;-ldrm;-lgbm;-lwayland-egl;-lwayland-client;-lwayland-cursor;-lxkbcommon;-ldecor-0;-lpthread;-lSDL2_mixer;-lSDL2;-lm;-lasound;-lm;-ldl;-lpthread;-lpulse;-pthread;-lsamplerate;-lX11;-lXext;-lXcursor;-lXi;-lXfixes;-lXrandr;-lXss;-ldrm;-lgbm;-lwayland-egl;-lwayland-client;-lwayland-cursor;-lxkbcommon;-ldecor-0;-lpthread
+ffmpeg_STATIC_LDFLAGS:INTERNAL=-L/usr/local/ffmpeg/lib;-lm;-lm;-lm;-lm;-lavfilter;-lm;-lm;-lpostproc;-lm;-lavformat;-lm;-lm;-lavcodec;-lm;-llzma;-lz;-lm;-lswresample;-lm;-lswscale;-lavutil;-pthread;-lm;-latomic;-lX11;-L/usr/lib/x86_64-linux-gnu;-lm;-lasound;-lm;-ldl;-lpthread;-lpulse;-pthread;-lsamplerate;-lX11;-lXext;-lXcursor;-lXi;-lXfixes;-lXrandr;-lXss;-ldrm;-lgbm;-lwayland-egl;-lwayland-client;-lwayland-cursor;-lxkbcommon;-ldecor-0;-lpthread;-lSDL2_mixer;-lSDL2;-lm;-lasound;-lm;-ldl;-lpthread;-lpulse;-pthread;-lsamplerate;-lX11;-lXext;-lXcursor;-lXi;-lXfixes;-lXrandr;-lXss;-ldrm;-lgbm;-lwayland-egl;-lwayland-client;-lwayland-cursor;-lxkbcommon;-ldecor-0;-lpthread
 ffmpeg_STATIC_LDFLAGS_OTHER:INTERNAL=-pthread;-pthread;-pthread
 ffmpeg_STATIC_LIBDIR:INTERNAL=
-ffmpeg_STATIC_LIBRARIES:INTERNAL=m;m;avformat;avcodec;m;lzma;z;m;swresample;m;swscale;avutil;m;atomic;X11;m;asound;m;dl;pthread;pulse;samplerate;X11;Xext;Xcursor;Xi;Xfixes;Xrandr;Xss;drm;gbm;wayland-egl;wayland-client;wayland-cursor;xkbcommon;decor-0;pthread;SDL2_mixer;SDL2;m;asound;m;dl;pthread;pulse;samplerate;X11;Xext;Xcursor;Xi;Xfixes;Xrandr;Xss;drm;gbm;wayland-egl;wayland-client;wayland-cursor;xkbcommon;decor-0;pthread
+ffmpeg_STATIC_LIBRARIES:INTERNAL=m;m;m;m;avfilter;m;m;postproc;m;avformat;m;m;avcodec;m;lzma;z;m;swresample;m;swscale;avutil;m;atomic;X11;m;asound;m;dl;pthread;pulse;samplerate;X11;Xext;Xcursor;Xi;Xfixes;Xrandr;Xss;drm;gbm;wayland-egl;wayland-client;wayland-cursor;xkbcommon;decor-0;pthread;SDL2_mixer;SDL2;m;asound;m;dl;pthread;pulse;samplerate;X11;Xext;Xcursor;Xi;Xfixes;Xrandr;Xss;drm;gbm;wayland-egl;wayland-client;wayland-cursor;xkbcommon;decor-0;pthread
 ffmpeg_STATIC_LIBRARY_DIRS:INTERNAL=/usr/local/ffmpeg/lib;/usr/lib/x86_64-linux-gnu
 ffmpeg_STATIC_LIBS:INTERNAL=
 ffmpeg_STATIC_LIBS_L:INTERNAL=
@@ -573,6 +579,11 @@ ffmpeg_libavcodec_LIBDIR:INTERNAL=/usr/local/ffmpeg/lib
 ffmpeg_libavcodec_MODULE_NAME:INTERNAL=libavcodec
 ffmpeg_libavcodec_PREFIX:INTERNAL=/usr/local/ffmpeg
 ffmpeg_libavcodec_VERSION:INTERNAL=61.19.100
+ffmpeg_libavfilter_INCLUDEDIR:INTERNAL=/usr/local/ffmpeg/include
+ffmpeg_libavfilter_LIBDIR:INTERNAL=/usr/local/ffmpeg/lib
+ffmpeg_libavfilter_MODULE_NAME:INTERNAL=libavfilter
+ffmpeg_libavfilter_PREFIX:INTERNAL=/usr/local/ffmpeg
+ffmpeg_libavfilter_VERSION:INTERNAL=10.4.100
 ffmpeg_libavformat_INCLUDEDIR:INTERNAL=/usr/local/ffmpeg/include
 ffmpeg_libavformat_LIBDIR:INTERNAL=/usr/local/ffmpeg/lib
 ffmpeg_libavformat_MODULE_NAME:INTERNAL=libavformat
@@ -603,6 +614,8 @@ pkgcfg_lib_ffmpeg_X11-ADVANCED:INTERNAL=1
 pkgcfg_lib_ffmpeg_atomic-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: pkgcfg_lib_ffmpeg_avcodec
 pkgcfg_lib_ffmpeg_avcodec-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: pkgcfg_lib_ffmpeg_avfilter
+pkgcfg_lib_ffmpeg_avfilter-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: pkgcfg_lib_ffmpeg_avformat
 pkgcfg_lib_ffmpeg_avformat-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: pkgcfg_lib_ffmpeg_avutil
@@ -611,6 +624,8 @@ pkgcfg_lib_ffmpeg_avutil-ADVANCED:INTERNAL=1
 pkgcfg_lib_ffmpeg_lzma-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: pkgcfg_lib_ffmpeg_m
 pkgcfg_lib_ffmpeg_m-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: pkgcfg_lib_ffmpeg_postproc
+pkgcfg_lib_ffmpeg_postproc-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: pkgcfg_lib_ffmpeg_swresample
 pkgcfg_lib_ffmpeg_swresample-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: pkgcfg_lib_ffmpeg_swscale

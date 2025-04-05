@@ -144,6 +144,7 @@ public:
      */
     void setSeekTime(double time);
     double getSeekTime(); // 获取播放进度
+    void setPlaybackSpeed(double speed);
 
     void setVolume(int v);
 

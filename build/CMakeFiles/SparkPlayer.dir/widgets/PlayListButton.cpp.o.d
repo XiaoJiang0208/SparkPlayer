@@ -811,9 +811,17 @@ CMakeFiles/SparkPlayer.dir/widgets/PlayListButton.cpp.o: \
  /usr/local/ffmpeg/include/libswresample/version_major.h \
  /usr/local/ffmpeg/include/libavutil/imgutils.h \
  /usr/local/ffmpeg/include/libavutil/pixdesc.h \
- /usr/local/ffmpeg/include/libavutil/opt.h /usr/include/c++/12/queue \
- /usr/include/c++/12/deque /usr/include/c++/12/bits/stl_deque.h \
- /usr/include/c++/12/bits/deque.tcc /usr/include/c++/12/bits/stl_queue.h \
+ /usr/local/ffmpeg/include/libavutil/opt.h \
+ /usr/local/ffmpeg/include/libavfilter/avfilter.h \
+ /usr/local/ffmpeg/include/libavfilter/version_major.h \
+ /usr/local/ffmpeg/include/libavfilter/version.h \
+ /usr/local/ffmpeg/include/libavfilter/version_major.h \
+ /usr/local/ffmpeg/include/libavfilter/buffersrc.h \
+ /usr/local/ffmpeg/include/libavfilter/avfilter.h \
+ /usr/local/ffmpeg/include/libavfilter/buffersink.h \
+ /usr/include/c++/12/queue /usr/include/c++/12/deque \
+ /usr/include/c++/12/bits/stl_deque.h /usr/include/c++/12/bits/deque.tcc \
+ /usr/include/c++/12/bits/stl_queue.h \
  /home/xiaojiang/DEV/SparkPlayer/widgets/../utils/ImageTools.h \
  /usr/include/x86_64-linux-gnu/qt5/QtCore/QSize \
  /home/xiaojiang/DEV/SparkPlayer/widgets/../utils/Path.h \

@@ -196,6 +196,10 @@ void Sparkplayer::setupUI()
 
     volume_box = new VolumeBox(controlers); // 配置音量按键
     play_list_button = new PlayListButton(controlers); // 配置播放列表
+    test = new DPushButton(controlers);
+    connect(test,&DPushButton::clicked,this,[&](){
+        SparkMediaControler::getInstance()->setPlaybackSpeed(1.5);
+    });
     video_box = new VideoBox(this);
     video_box->raise();
 }

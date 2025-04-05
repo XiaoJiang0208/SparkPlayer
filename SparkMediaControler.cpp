@@ -329,11 +329,11 @@ void SparkMediaControler::playThead(int step)
     
     while (isPlay)
     {
-        int target = m_codec.getAudioSamples()%2 ? m_codec.getAudioSamples()-1 : m_codec.getAudioSamples();
-        if (audio_spec.samples < target) {
+        //int target = m_codec.getAudioSamples()%2 ? m_codec.getAudioSamples()-1 : m_codec.getAudioSamples();
+        if (audio_spec.samples != m_codec.getAudioSamples()) {
             SDL_PauseAudioDevice(audio_device_id,1);
             SDL_CloseAudioDevice(audio_device_id);
-            audio_spec.samples = target;
+            audio_spec.samples = m_codec.getAudioSamples();
             if ((audio_device_id = SDL_OpenAudioDevice(nullptr,0,&audio_spec, nullptr,SDL_AUDIO_ALLOW_ANY_CHANGE)) < 2){
                 qWarning() << "open audio device failed ";
                 closeMedia();
@@ -392,6 +392,11 @@ void SparkMediaControler::setSeekTime(double time)
 double SparkMediaControler::getSeekTime()
 {
     return m_codec.getSeekTime();
+}
+
+void SparkMediaControler::setPlaybackSpeed(double speed)
+{
+    m_codec.setPlaybackSpeed(speed);
 }
 
 void SparkMediaControler::setVolume(int v)

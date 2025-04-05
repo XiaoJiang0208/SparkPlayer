@@ -453,6 +453,8 @@ SparkPlayer: /usr/lib/x86_64-linux-gnu/libQt5Network.so.5.15.8
 SparkPlayer: /usr/lib/x86_64-linux-gnu/libQt5DBus.so.5.15.8
 SparkPlayer: /usr/lib/x86_64-linux-gnu/libQt5Core.so.5.15.8
 SparkPlayer: /usr/lib/x86_64-linux-gnu/libm.so
+SparkPlayer: /usr/local/ffmpeg/lib/libavfilter.a
+SparkPlayer: /usr/local/ffmpeg/lib/libpostproc.a
 SparkPlayer: /usr/local/ffmpeg/lib/libavformat.a
 SparkPlayer: /usr/local/ffmpeg/lib/libavcodec.a
 SparkPlayer: /usr/lib/x86_64-linux-gnu/liblzma.so
@@ -461,6 +463,8 @@ SparkPlayer: /usr/local/ffmpeg/lib/libswresample.a
 SparkPlayer: /usr/local/ffmpeg/lib/libswscale.a
 SparkPlayer: /usr/local/ffmpeg/lib/libavutil.a
 SparkPlayer: /usr/lib/x86_64-linux-gnu/libm.so
+SparkPlayer: /usr/local/ffmpeg/lib/libavfilter.a
+SparkPlayer: /usr/local/ffmpeg/lib/libpostproc.a
 SparkPlayer: /usr/local/ffmpeg/lib/libavformat.a
 SparkPlayer: /usr/local/ffmpeg/lib/libavcodec.a
 SparkPlayer: /usr/lib/x86_64-linux-gnu/liblzma.so

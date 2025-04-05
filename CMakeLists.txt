@@ -14,7 +14,7 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Core LinguistTool
 find_package(Dtk REQUIRED COMPONENTS Widget Core)
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(ffmpeg REQUIRED IMPORTED_TARGET libavcodec libavformat libavutil libswscale sdl2 SDL2_mixer)
+pkg_check_modules(ffmpeg REQUIRED IMPORTED_TARGET libavcodec libavformat libavfilter libavutil libswscale sdl2 SDL2_mixer)
 
 
 set(TS_FILES SparkPlayer_zh_CN.ts)

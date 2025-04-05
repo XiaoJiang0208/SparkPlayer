@@ -12,6 +12,8 @@ extern "C" {
 #include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
 #include <libavfilter/avfilter.h>
+#include <libavfilter/buffersrc.h>
+#include <libavfilter/buffersink.h>
 }
 
 #include <thread>
@@ -94,7 +96,11 @@ private:
     int32_t m_picWidth;
 
     AVCodecContext *m_pAudCodecCtx; // 音频编解码上下文
-    
+    AVFilterGraph *filter_graph;         // 滤镜图
+    std::mutex filter_graph_mutex;
+    AVFilterContext *buffersrc_ctx;      // 输入滤镜上下文
+    AVFilterContext *buffersink_ctx;     // 输出滤镜上下文
+    double playback_speed;               // 播放速度，例如 1.0、1.5、2.0
     // 分配 SwrContext
     SwrContext *pSwrCtx;
     int32_t m_audStreamIndex; // 音频流索引
@@ -139,6 +145,7 @@ private:
     int32_t decodePacketToFrame(AVCodecContext *pCodecCtx, const AVPacket *pPacket, AVFrame **ppFrame); // 解码视频帧
     int32_t videoFrameConvert(const AVFrame *pInFrame, OutVideoFrameSetting &settings, uint8_t* data[1],int linesize[1]); // 转换视频帧
     int32_t initAudioContext();
+    int32_t initAudioFliter();
     int32_t audioFrameConvert(const AVFrame *pInFrame, OutAudioFrameSetting &settings, uint8_t* data[1],int linesize[1]);
     void threadReadPacket();
     void threadDecodeVideo();
@@ -172,6 +179,7 @@ public:
 
     double getSeekTime();
     void setSeekTime(double time);
+    void setPlaybackSpeed(double speed);
 
     double getTime();
 

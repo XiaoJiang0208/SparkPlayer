@@ -582,6 +582,11 @@
   /usr/local/ffmpeg/include/libavcodec/packet.h \
   /usr/local/ffmpeg/include/libavcodec/version.h \
   /usr/local/ffmpeg/include/libavcodec/version_major.h \
+  /usr/local/ffmpeg/include/libavfilter/avfilter.h \
+  /usr/local/ffmpeg/include/libavfilter/buffersink.h \
+  /usr/local/ffmpeg/include/libavfilter/buffersrc.h \
+  /usr/local/ffmpeg/include/libavfilter/version.h \
+  /usr/local/ffmpeg/include/libavfilter/version_major.h \
   /usr/local/ffmpeg/include/libavformat/avformat.h \
   /usr/local/ffmpeg/include/libavformat/avio.h \
   /usr/local/ffmpeg/include/libavformat/version.h \

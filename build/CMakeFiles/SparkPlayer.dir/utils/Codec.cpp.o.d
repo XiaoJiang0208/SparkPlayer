@@ -173,9 +173,16 @@ CMakeFiles/SparkPlayer.dir/utils/Codec.cpp.o: \
  /usr/local/ffmpeg/include/libswresample/version_major.h \
  /usr/local/ffmpeg/include/libavutil/imgutils.h \
  /usr/local/ffmpeg/include/libavutil/pixdesc.h \
- /usr/local/ffmpeg/include/libavutil/opt.h /usr/include/c++/12/thread \
- /usr/include/c++/12/bits/std_thread.h /usr/include/c++/12/iosfwd \
- /usr/include/c++/12/bits/stringfwd.h \
+ /usr/local/ffmpeg/include/libavutil/opt.h \
+ /usr/local/ffmpeg/include/libavfilter/avfilter.h \
+ /usr/local/ffmpeg/include/libavfilter/version_major.h \
+ /usr/local/ffmpeg/include/libavfilter/version.h \
+ /usr/local/ffmpeg/include/libavfilter/version_major.h \
+ /usr/local/ffmpeg/include/libavfilter/buffersrc.h \
+ /usr/local/ffmpeg/include/libavfilter/avfilter.h \
+ /usr/local/ffmpeg/include/libavfilter/buffersink.h \
+ /usr/include/c++/12/thread /usr/include/c++/12/bits/std_thread.h \
+ /usr/include/c++/12/iosfwd /usr/include/c++/12/bits/stringfwd.h \
  /usr/include/c++/12/bits/memoryfwd.h /usr/include/c++/12/bits/postypes.h \
  /usr/include/c++/12/cwchar /usr/include/wchar.h \
  /usr/include/x86_64-linux-gnu/bits/types/wint_t.h \

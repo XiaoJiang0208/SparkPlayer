@@ -63,6 +63,7 @@ private:
     DPushButton *fullscreen_button; // 全屏按钮
     VolumeBox *volume_box;
     PlayListButton *play_list_button;
+    DPushButton *test;
     
 
     void mouseReleaseEvent(QMouseEvent *event);
