@@ -5,6 +5,7 @@
 #include <mutex>
 #include <ctime>
 #include <filesystem>
+#include <random>
 
 #include <qt5/QtCore/QObject>
 #include <qt5/QtGui/QImage>
@@ -21,6 +22,12 @@
 namespace fs = std::filesystem;
 
 QT_USE_NAMESPACE
+enum PlayMode {
+    PlayMode_One,
+    PlayMode_Random,
+    PlayMode_List,
+    PlayMode_OneLoop
+};
 
 class SparkMediaControler : public QObject
 {
@@ -50,8 +57,11 @@ private:
 
     SparkMediaControler(/* args */);
 
+    std::mutex codec_mutex;
     std::mutex play_mutex;
     void playThead(int step);
+
+    PlayMode play_mode = PlayMode_List;
 
 public:
     fs::path getPath(){return m_path;}
@@ -59,6 +69,8 @@ public:
     void setVideoSize(QSize size);
     void setVideoSize(int widht, int height);
     QSize getVideoSize(){return size;}
+
+    bool isVideo();
 
     double getTime();
 
@@ -121,7 +133,7 @@ public:
     // 获取播放列表的指针
     std::deque<fs::path> *getPlayList();
     // 下一个
-    void nextMedia();
+    void nextMedia(bool need_play = false);
     // 上一个
     void previousmedia();
 
@@ -147,6 +159,14 @@ public:
     void setPlaybackSpeed(double speed);
 
     void setVolume(int v);
+
+    // 处理播放模式逻辑
+    void DoPlayMod();
+    // 设置播放模式
+    void setPlayMode(PlayMode mode);
+    // 获取播放模式
+    PlayMode getPlayMode();
+
 
     ~SparkMediaControler();
 

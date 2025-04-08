@@ -10,6 +10,7 @@
 #include <QJsonArray>
 #include <QJsonValue>
 #include <QJsonDocument>
+#include "utils/Codec.h"
 
 class Base64
 {
@@ -52,8 +53,9 @@ public:
 
     std::string FaceAPIEmotion(const char *bytes_to_encode, unsigned int in_len);
     std::string FaceAPIAnimation(const char *bytes_to_encode, unsigned int in_len);
-    std::string MusicAPIStyle(const char *bytes_to_encode, unsigned int in_len, std::string format, std::string sample_rate, std::string channel_count);
-
+    std::string MusicAPIStyle(const char *bytes_to_encode, unsigned int in_len, std::string format, int sample_rate, int channel_count);
+    std::string MusicAPIStyle(const std::string& filepath);
+    static std::list<std::string> getStyleFromResponse(std::string style);
 };
 
 

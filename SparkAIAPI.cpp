@@ -258,24 +258,65 @@ std::string SparkAIAPI::FaceAPIAnimation(const char *bytes_to_encode, unsigned i
     return response;
 }
 
-std::string SparkAIAPI::MusicAPIStyle(const char *bytes_to_encode, unsigned int in_len, std::string format, std::string sample_rate, std::string channel_count)
+std::string SparkAIAPI::MusicAPIStyle(const char *bytes_to_encode, unsigned int in_len, std::string format, int sample_rate, int channel_count)
 {
     std::string base64img = Base64::Encode(bytes_to_encode,in_len);
     std::time_t now = std::time(nullptr);
     std::string time_str = std::to_string(now)+"."+format;
     QJsonObject audio_info = {
         {"format", format.c_str()},
-        {"sample_rate", sample_rate.c_str()},
-        {"channel_count", channel_count.c_str()}
+        {"sample_rate", sample_rate},
+        {"channel", channel_count}
+    };
+    QJsonObject feature = {
+        {"forced_refresh", "no"}
     };
     QJsonObject data = {
-        {"image", base64img.c_str()},
+        {"audio", base64img.c_str()},
         {"data_type", "audio"},
         {"file_name", time_str.c_str()},
-        {"audio_info", audio_info}
+        {"audio_info", audio_info},
+        {"feature", feature}
     };
     QJsonDocument doc(data);
     QString jsonString = doc.toJson(QJsonDocument::Compact);
+    qDebug() << "jsonString:" << jsonString;
     std::string response = httpPost("http://sakuraspark.fun:5000/upload",jsonString.toStdString());
     return response;
+}
+
+std::string SparkAIAPI::MusicAPIStyle(const std::string &filepath)
+{
+    OutAudioFrameSetting settings = Codec::getRawAudioSettings(filepath);
+    // 打开文件
+    std::ifstream file(filepath, std::ios::binary | std::ios::ate);
+    
+    if (!file.is_open()) {
+        return "";
+    }
+    // 获取文件大小
+    std::streampos size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    // 分配内存
+    char* buffer = new char[size];
+    // 读取文件内容
+    file.read(buffer, size);
+    // 关闭文件
+    file.close();
+    return MusicAPIStyle(buffer, size, settings.format, settings.sample_rate, settings.channel_count);
+}
+
+std::list<std::string> SparkAIAPI::getStyleFromResponse(std::string style)
+{
+    std::list<std::string> styles;
+    QJsonDocument json = QJsonDocument::fromJson(style.c_str());
+    if (json.isNull()) {
+        qDebug() << "json error";
+        return styles;
+    }
+    QJsonArray array = json.object()["tags"].toArray();
+    for (const auto &item : array) {
+        styles.push_back(item.toString().toStdString());
+    }
+    return styles;
 }

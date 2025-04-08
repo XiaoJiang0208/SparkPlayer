@@ -34,8 +34,8 @@ void SpeedBox::initUI()
 
 void SpeedBox::resizebox()
 {
-    speed_setting_box->move(this->x()-8,window()->height()-80+y()-80);
     move(parentWidget()->width()-width()-70,35);
+    speed_setting_box->move(this->x()-8,window()->height()-80+y()-80);
 }
 
 void SpeedBox::raise()

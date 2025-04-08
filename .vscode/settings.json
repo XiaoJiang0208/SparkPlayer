@@ -82,6 +82,7 @@
         "codecvt": "cpp",
         "iomanip": "cpp",
         "qgraphicsdropshadoweffect": "cpp",
-        "qstring": "cpp"
+        "qstring": "cpp",
+        "fstream": "cpp"
     }
 }

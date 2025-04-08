@@ -29,6 +29,7 @@ int32_t Codec::openFile(const char *path){
     const AVCodec *pVidCodec = nullptr; // 视频编解码器
     const AVCodec *pAudCodec = nullptr; // 音频编解码器
     int res = 0;
+    playback_speed = 1.0;
     m_picStreamIndex = -1;
     m_audStreamIndex = -1;
     m_vidStreamIndex = -1;
@@ -154,13 +155,11 @@ void Codec::closeFile(){
     }
     if (m_pVidCodecCtx != nullptr)
     {
-        avcodec_close(m_pVidCodecCtx);
         avcodec_free_context(&m_pVidCodecCtx);
         m_pVidCodecCtx = nullptr;
     }
     if (m_pAudCodecCtx != nullptr)
     {
-        avcodec_close(m_pAudCodecCtx);
         avcodec_free_context(&m_pAudCodecCtx);
         m_pAudCodecCtx = nullptr;
     }
@@ -227,6 +226,7 @@ int32_t Codec::changeVideoStream(int32_t i)
     }
     m_vidStreamIndex = i;
     m_pVidCodecCtx = pVidCodecCtx;
+    return res;
 }
 
 void Codec::changeAudioStream(int32_t i)
@@ -619,11 +619,11 @@ int32_t Codec::initAudioFliter()
     // 配置输出格式（与 SwrContext 输入一致）
     int out_sample_rates[] = {m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->sample_rate, -1};
     //av_channel_layout_default(&out_ch_layout, m_outAudSetting.channel_count);
-    int64_t out_channel_layouts[] = {m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->ch_layout.u.mask, -1};
+    uint64_t out_channel_layouts = m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->ch_layout.u.mask;
     int out_formats[] = {m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->format, -1};
 
+    av_opt_set_int_list(buffersink_ctx, "channel_layouts", &out_channel_layouts, -1, AV_OPT_SEARCH_CHILDREN);
     av_opt_set_int_list(buffersink_ctx, "sample_rates", out_sample_rates, -1, AV_OPT_SEARCH_CHILDREN);
-    av_opt_set_int_list(buffersink_ctx, "channel_layouts", out_channel_layouts, -1, AV_OPT_SEARCH_CHILDREN);
     av_opt_set_int_list(buffersink_ctx, "sample_fmts", out_formats, -1, AV_OPT_SEARCH_CHILDREN);
 
     // 链接滤镜
@@ -843,12 +843,14 @@ int32_t Codec::getFinalVidFrame(uint8_t *data[1], int linesize[1])
 
 int32_t Codec::getFinalAudFrame(uint8_t *data[1], int linesize[1])
 {
-
+    if (!m_isDecoding) return -1;
+    
     int res=0;
     if(m_audBuffer.empty()) return -1;
     // 从缓冲区取出一帧
     AVFrame *frame = m_audBuffer.front();
     m_audBuffer.pop();
+    double audioPts = frame->pts * av_q2d(m_pAvFormatCtx->streams[m_audStreamIndex]->time_base);
     filter_graph_mutex.lock();
     res = av_buffersrc_add_frame(buffersrc_ctx, frame);
     if (res < 0) {
@@ -859,6 +861,7 @@ int32_t Codec::getFinalAudFrame(uint8_t *data[1], int linesize[1])
     }
     // 从滤镜获取处理后的帧
     AVFrame *filt_frame = av_frame_alloc();
+    // TODO 线程不安全
     res = av_buffersink_get_frame(buffersink_ctx, filt_frame);
     if (res < 0) {
         qWarning() << "从滤镜获取帧失败:" << res;
@@ -868,7 +871,6 @@ int32_t Codec::getFinalAudFrame(uint8_t *data[1], int linesize[1])
     }
     filter_graph_mutex.unlock();
     res = audioFrameConvert(filt_frame,m_outAudSetting,data,linesize);
-    double audioPts = filt_frame->pts * av_q2d(m_pAvFormatCtx->streams[m_audStreamIndex]->time_base);
     //audioPts /= playback_speed; // 调整 PTS 以匹配倍速
     m_sync.setClock(audioPts);
     qDebug()<<"audio:"<<audioPts;
@@ -912,7 +914,22 @@ OutAudioFrameSetting Codec::getOutAudioSettings()
 
 OutAudioFrameSetting Codec::getRawAudioSettings()
 {
-    return OutAudioFrameSetting();
+    OutAudioFrameSetting rt = {m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->sample_rate,
+                               m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->ch_layout.nb_channels,
+                               m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->format,
+                               0,
+                               avcodec_get_name(m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->codec_id)};
+    return rt;
+}
+
+OutAudioFrameSetting Codec::getRawAudioSettings(fs::path path)
+{
+    Codec codec;
+    if (codec.openFile(path.c_str())<0) {
+        codec.closeFile();
+        return {};
+    }
+    return codec.getRawAudioSettings();
 }
 
 int Codec::getAudioSamples()
@@ -929,6 +946,7 @@ double Codec::getSeekTime()
 void Codec::setSeekTime(double time)
 {
     // TODO 修复音频包堆积问题
+    bool status = m_isDecoding;
     stopDecoding();
 
     if (!m_pAvFormatCtx || m_audStreamIndex < 0) {
@@ -978,11 +996,13 @@ void Codec::setSeekTime(double time)
     }
     qDebug()<<"audio:"<<pts;
     m_sync.setClock(pts);
-    startDecoding();
+    
+    if (status) startDecoding();
 }
 
 void Codec::setPlaybackSpeed(double speed)
 {
+    bool status = m_isDecoding;
     stopDecoding();
     // 检查速度范围（atempo 支持 0.5x 到 2.0x）
     if (speed < 0.5) {
@@ -996,7 +1016,7 @@ void Codec::setPlaybackSpeed(double speed)
     std::lock_guard<std::mutex> lock(filter_graph_mutex);
     avfilter_graph_free(&filter_graph);
     initAudioFliter();
-    startDecoding();
+    if (status) startDecoding();
 }
 
 double Codec::getTime()

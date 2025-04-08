@@ -16,6 +16,7 @@ find_package(Dtk REQUIRED COMPONENTS Widget Core)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(ffmpeg REQUIRED IMPORTED_TARGET libavcodec libavformat libavfilter libavutil libswscale sdl2 SDL2_mixer)
 
+find_package(CURL REQUIRED)
 
 set(TS_FILES SparkPlayer_zh_CN.ts)
 
@@ -29,6 +30,8 @@ set(PROJECT_SOURCES
         SparkMediaControler.cpp
         SparkSettings.h
         SparkSettings.cpp
+        SparkAIAPI.h
+        SparkAIAPI.cpp
         ${TS_FILES}
 )
 
@@ -65,6 +68,7 @@ else()
             widgets/VolumeBox.h widgets/VolumeBox.cpp
             widgets/PlayListBox.h widgets/PlayListBox.cpp
             widgets/PlayListButton.h widgets/PlayListButton.cpp
+            widgets/SpeedBox.h widgets/SpeedBox.cpp
             utils/ImageTools.h utils/ImageTools.cpp
             utils/Path.h utils/Path.cpp
             utils/Codec.h utils/Codec.cpp
@@ -80,8 +84,9 @@ target_link_libraries(SparkPlayer PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_
     Dtk::Widget
     Dtk::Core
     PkgConfig::ffmpeg
+    CURL::libcurl
 )
-
+target_link_options(SparkPlayer PRIVATE -Wl,-rpath,"$$ORIGIN/lib")
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
 # explicit, fixed bundle identifier manually though.

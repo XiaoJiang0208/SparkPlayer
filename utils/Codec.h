@@ -46,6 +46,7 @@ struct OutAudioFrameSetting
     int channel_count = 2;
     int sample_fmt = 16;
     int sample = 0;
+    std::string format = "";
 };
 
 class AVSync
@@ -175,6 +176,7 @@ public:
     void setOutAudio(int sample_rate, int channel_count, int sample_fmt);
     OutAudioFrameSetting getOutAudioSettings();
     OutAudioFrameSetting getRawAudioSettings();
+    static OutAudioFrameSetting getRawAudioSettings(fs::path path);
     int getAudioSamples();
 
     double getSeekTime();

@@ -22,15 +22,15 @@ int main(int argc, char *argv[])
     a->setApplicationVersion("0.1b");
     a->setApplicationDescription("A beautiful modern media player");
     DAboutDialog *about = new DAboutDialog();
-    about->setWebsiteLink("https://github.com/XiaoJiang0208");
+    //about->setWebsiteLink("https://github.com/XiaoJiang0208");
     about->setWebsiteName("XiaoJiang's Github");
     about->setVersion(a->applicationVersion());
     about->setDescription(a->applicationDescription());
     about->setProductName(a->applicationName());
     a->setAboutDialog(about);
     
-    DApplicationSettings as;
-    Q_UNUSED(as);
+    //DApplicationSettings as;
+    //Q_UNUSED(as);
     QTranslator translator;
     const QStringList uiLanguages = QLocale::system().uiLanguages();
     for (const QString &locale : uiLanguages) {

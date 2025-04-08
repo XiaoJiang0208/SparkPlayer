@@ -12,6 +12,24 @@ MainPage::MainPage(QWidget *parent, PageData *data)
     }
     
     initUI();
+    
+    QTimer::singleShot(10,this,[&](){
+        QDir dir(this->data->path);
+        QStringList fileList = dir.entryList(QDir::Files);
+        if (!fileList.isEmpty()) {
+            QString filePath = dir.absoluteFilePath(fileList.first());
+            int w = Codec::getTitleImgWidth(fs::path(filePath.toStdString()));
+            int h = Codec::getTitleImgHeight(fs::path(filePath.toStdString()));
+            QSize size(w,h);
+            QImage img(size,QImage::Format_RGB32);
+            uint8_t* imgdata[1] = { reinterpret_cast<uint8_t*>(img.bits()) };
+            int linesize[1] = { static_cast<int>(img.bytesPerLine()) };
+            int res = Codec::getTitleImg(fs::path(filePath.toStdString()),size.width(),size.height(),imgdata,linesize);
+            if (res >= 0) {
+                media_list_bar_icon->setPixmap(ImageTools::toPixmap(img,media_list_bar_icon->size(),6));
+            }
+        }
+    });
     reloadMedia();
 
     connect(DGuiApplicationHelper::instance(), &DGuiApplicationHelper::themeTypeChanged, this, &MainPage::slotThemeTypeChanged);
@@ -56,7 +74,7 @@ void MainPage::initUI()
 
     // 添加图标
     media_list_bar_icon = new DLabel(media_list_bar);
-    media_list_bar_icon->setPixmap(ImageTools::toPixmap(Path::applicationPath("images/bg.png").toString(), QSize(100, 80),15));
+    media_list_bar_icon->setPixmap(ImageTools::toPixmap(Path::applicationPath("images/icon.png").toString(), QSize(100, 80),15));
     media_list_bar_icon->show();
     media_list_bar_layout->addWidget(media_list_bar_icon);
 

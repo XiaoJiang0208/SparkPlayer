@@ -34,7 +34,8 @@ void PlayListBox::initUI()
     media_list_context_layout->setSpacing(0);
     media_list_context_layout->setAlignment(Qt::AlignTop);  // 新增，确保从上到下排列
     
-    title = new QLabel("右键从播放列表删除",media_list_context);
+    title = new QLabel("播放列表\n右键从播放列表删除",media_list_context);
+    title->setAlignment(Qt::AlignCenter);
     media_list_context_layout->addWidget(title);
     media_list->setWidget(media_list_context);
 }

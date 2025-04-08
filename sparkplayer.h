@@ -2,16 +2,21 @@
 #define SPARKPLAYER_H
 
 #include "include.h"
+#include <QMessageBox>
+#include <QJsonObject>
+#include <QJsonDocument>
 #include "utils/Codec.h"
 #include "widgets/TimeLine.h"
 #include "widgets/MainPage.h"
 #include "widgets/TitleBar.h"
 #include "widgets/MediaListButton.h"
 #include "widgets/VideoBox.h"
+#include "widgets/SpeedBox.h"
 #include "widgets/VolumeBox.h"
 #include "widgets/PlayListButton.h"
 #include "SparkMediaControler.h"
 #include "SparkSettings.h"
+#include "SparkAIAPI.h"
 
 DWIDGET_USE_NAMESPACE
 
@@ -61,9 +66,11 @@ private:
     DPushButton *previous_play; // 上一个
     DPushButton *next_play; // 下一个
     DPushButton *fullscreen_button; // 全屏按钮
+    SpeedBox *speed_box; // 播放速度
     VolumeBox *volume_box;
     PlayListButton *play_list_button;
-    DPushButton *test;
+    DPushButton *ai_button;
+    DPushButton *playmode_button;
     
 
     void mouseReleaseEvent(QMouseEvent *event);
@@ -71,6 +78,7 @@ private:
 public slots:
     void slotThemeTypeChanged();
     void slotFullscreen(bool t);
-    
+    void slotChangePlayMode();
+    void slotAI();
 };
 #endif // SPARKPLAYER_H

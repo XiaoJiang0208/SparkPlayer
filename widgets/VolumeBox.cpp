@@ -29,8 +29,8 @@ void VolumeBox::initUI()
  
 void VolumeBox::resizebox()
 {
-    volume_setting_box->move(this->x()-3,window()->height()-80+y()-80);
     move(parentWidget()->width()-width()-40,35);
+    volume_setting_box->move(this->x()-3,window()->height()-80+y()-80);
 }
 
 void VolumeBox::raise()

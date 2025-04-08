@@ -18,7 +18,9 @@ Sparkplayer::Sparkplayer()
     connect(video_box,&VideoBox::onNeedShow,this,[&](){hideControlers(false);title_bar->setHide(false);});
     connect(video_box,&VideoBox::onNeedHide,this,[&](){hideControlers(true);title_bar->setHide(true);});
     connect(fullscreen_button,&DPushButton::clicked,[&](){video_box->fullscreen(false);});
-    
+    connect(ai_button,&DPushButton::clicked,this,&Sparkplayer::slotAI);
+    connect(playmode_button,&DPushButton::clicked,this,&Sparkplayer::slotChangePlayMode);
+
     slotThemeTypeChanged();
 
 
@@ -33,6 +35,7 @@ Sparkplayer::Sparkplayer()
             addMediaPage(PageData{ title, "", dir, "", Box }, -1);
         }
     }
+
 }
 
 Sparkplayer::~Sparkplayer()
@@ -194,12 +197,26 @@ void Sparkplayer::setupUI()
     title_bar->raise(); // 置顶 titlebar
     controlers->raise(); // 置顶 controlers
 
+    speed_box = new SpeedBox(controlers); // 配置播放速度
     volume_box = new VolumeBox(controlers); // 配置音量按键
     play_list_button = new PlayListButton(controlers); // 配置播放列表
-    test = new DPushButton(controlers);
-    connect(test,&DPushButton::clicked,this,[&](){
-        SparkMediaControler::getInstance()->setPlaybackSpeed(1.5);
-    });
+    ai_button = new DPushButton("AI",controlers); // 配置AI按钮
+    ai_button->setFixedSize(30,30);
+    ai_button->move(width()-30-105,35);
+    ai_button->setStyleSheet(".QPushButton{background-color:rgba(196, 189, 189, 0); border-radius: 10px;}\
+                                .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}\
+                                .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}");
+    // test = new DPushButton(controlers);
+    // connect(test,&DPushButton::clicked,this,[&](){
+    //     SparkMediaControler::getInstance()->setPlaybackSpeed(1.5);
+    // });
+    playmode_button = new DPushButton(controlers);
+    playmode_button->setText("顺序播放");
+    playmode_button->setFixedSize(75,30);
+    playmode_button->move(width()-30-185,35);
+    playmode_button->setStyleSheet(".QPushButton{background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}\
+                                    .QPushButton:hover{background-color:rgba(196, 189, 189, 0.1); border-radius: 10px;}\
+                                    .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}");
     video_box = new VideoBox(this);
     video_box->raise();
 }
@@ -212,7 +229,10 @@ void Sparkplayer::resizeEvent(QResizeEvent *event)
     controlers->setFixedWidth(width());
     controlers->move(0,height()-80);
     volume_box->resizebox();
+    speed_box->resizebox();
     play_list_button->resizeEvent(event);
+    ai_button->move(width()-30-105,35);
+    playmode_button->move(width()-30-185,35);
 }
 
 void Sparkplayer::reloadMediaPage()
@@ -396,6 +416,55 @@ void Sparkplayer::slotFullscreen(bool t)
         title_bar->setStyleSheet(".QWidget{background-color:rgba(0, 0, 0, 0);}");
     }
     
+}
+
+void Sparkplayer::slotChangePlayMode()
+{
+    PlayMode mode = PlayMode((SparkMediaControler::getInstance()->getPlayMode()+1)%4);
+    SparkMediaControler::getInstance()->setPlayMode(mode);
+    switch (mode)
+    {
+        case PlayMode_List:
+            playmode_button->setText("顺序播放");
+            break;
+        case PlayMode_Random:
+            playmode_button->setText("随机播放");
+            break;
+        case PlayMode_One:
+            playmode_button->setText("单曲播放");
+            break;
+        case PlayMode_OneLoop:
+            playmode_button->setText("单曲循环");
+            break;
+        default:
+            break;
+    }
+    qDebug() << "playmode changed to " << mode;
+}
+
+void Sparkplayer::slotAI()
+{
+    if (!SparkMediaControler::getInstance()->isHaveFile()){
+        return;
+    }
+    QMenu contextMenu(this);
+    if (SparkMediaControler::getInstance()->isVideo()) {
+        contextMenu.addAction("动画角色识别", this, [this](){
+            video_box->SparkAI(1);
+        });
+        contextMenu.addAction("表情识别", this, [this](){
+            video_box->SparkAI(0);
+        });
+    } else {
+        contextMenu.addAction("音频识别", this, [this](){
+            video_box->SparkAI(2);
+        });
+    }
+    //ai_button在屏幕的位置
+    QPoint pos = ai_button->mapToGlobal(QPoint(0, 0));
+    pos.setX(pos.x()-(contextMenu.sizeHint().width()-ai_button->width())/2);
+    pos.setY(pos.y()-contextMenu.sizeHint().height());
+    contextMenu.exec(pos);
 }
 
 void Sparkplayer::slotThemeTypeChanged(){

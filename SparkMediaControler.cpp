@@ -23,6 +23,7 @@ void SparkMediaControler::setVideoSize(int widht, int height)
 void audioCallback(void* userData, Uint8* stream, int len) {
     //qDebug()<<"缓冲区数据长度: "<<len;
     SparkMediaControler* ctrl = static_cast<SparkMediaControler*>(userData);
+    emit ctrl->onTimeChange();
     SDL_memset(stream, ctrl->audio_spec.silence, len);  // 默认填充静音
 
     uint8_t* aud_data[1] = {nullptr};
@@ -40,7 +41,10 @@ void audioCallback(void* userData, Uint8* stream, int len) {
     //DL_memcpy(stream, aud_data[0], copySize);
     
     SDL_MixAudioFormat(stream, aud_data[0], ctrl->audio_spec.format, copySize, ctrl->volume);
-    emit ctrl->onTimeChange();
+}
+bool SparkMediaControler::isVideo()
+{
+    return m_codec.getMediaType() == MediaType::video;
 }
 double SparkMediaControler::getTime()
 {
@@ -57,6 +61,11 @@ int SparkMediaControler::setAudioDevice()
 
     m_codec.setOutAudio(48000,2,16);
     
+    if ((audio_device_id = SDL_OpenAudioDevice(nullptr,0,&audio_spec, nullptr,SDL_AUDIO_ALLOW_ANY_CHANGE)) < 2){
+        qWarning() << "open audio device failed ";
+        closeMedia();
+        return -1;
+    }
     return 0;
 }
 
@@ -77,9 +86,13 @@ void SparkMediaControler::play(int step)
 }
 void SparkMediaControler::pause()
 {
+    if (!isPlay) {  // 如果已经暂停，直接返回
+        return;
+    }
+    
+    isPlay = false;
     m_codec.stopDecoding();
     SDL_PauseAudioDevice(audio_device_id,1);
-    isPlay = false;
 }
 
 
@@ -113,7 +126,6 @@ void SparkMediaControler::openMedia(fs::path path){
     }
 
     haveFile = true;
-    setAudioDevice();
     if (m_codec.getMediaType() == MediaType::video)
     {
         setVideoSize(0,0);
@@ -128,8 +140,6 @@ void SparkMediaControler::closeMedia(){
     pause();
     haveFile = false;
     m_codec.closeFile();
-
-    SDL_CloseAudioDevice(audio_device_id);
 }
 
 bool SparkMediaControler::isHaveFile()
@@ -166,7 +176,6 @@ void SparkMediaControler::addMedia(fs::path path, int index)
         play_point = play_list.begin();
         if (haveFile)
         {
-            pause();
             closeMedia();
         }
         openMedia(play_point->c_str());
@@ -228,7 +237,7 @@ std::deque<fs::path> *SparkMediaControler::getPlayList()
     return &play_list;
 }
 
-void SparkMediaControler::nextMedia()
+void SparkMediaControler::nextMedia(bool need_play)
 {
     if (!play_list.empty())
     {
@@ -241,7 +250,7 @@ void SparkMediaControler::nextMedia()
             play_point = play_list.begin();
         }
         openMedia(play_point->c_str());
-        if (st)
+        if (st || need_play)
         {
             play();
         }
@@ -312,13 +321,9 @@ QImage *SparkMediaControler::getImg()
 
 void SparkMediaControler::playThead(int step)
 {
+    std::lock_guard<std::mutex> lock(codec_mutex);
     qDebug()<<"in";
     int is_step = step;
-    if ((audio_device_id = SDL_OpenAudioDevice(nullptr,0,&audio_spec, nullptr,SDL_AUDIO_ALLOW_ANY_CHANGE)) < 2){
-        qWarning() << "open audio device failed ";
-        closeMedia();
-        return;
-    }
     // audio_spec.samples = 2048;
     // if ((audio_device_id = SDL_OpenAudioDevice(nullptr,0,&audio_spec, nullptr,SDL_AUDIO_ALLOW_ANY_CHANGE)) < 2){
     //     qWarning() << "open audio device failed ";
@@ -358,6 +363,7 @@ void SparkMediaControler::playThead(int step)
         if (m_codec.isEnd())
         {
             isPlay = false;
+            DoPlayMod();
         }
         if (m_codec.getMediaType() == MediaType::audio)
         {
@@ -367,10 +373,10 @@ void SparkMediaControler::playThead(int step)
         play_mutex.lock();
         uint8_t* data[1] = { reinterpret_cast<uint8_t*>(image_frame->bits()) };
         int linesize[1] = { static_cast<int>(image_frame->bytesPerLine()) };
-        play_mutex.unlock();
         if(!m_codec.getFinalVidFrame(data,linesize)){
             emit onImageDone();
         }
+        play_mutex.unlock();
         
     }
 
@@ -396,7 +402,11 @@ double SparkMediaControler::getSeekTime()
 
 void SparkMediaControler::setPlaybackSpeed(double speed)
 {
-    m_codec.setPlaybackSpeed(speed);
+    if (haveFile)
+    {
+        m_codec.setPlaybackSpeed(speed);
+    }
+    
 }
 
 void SparkMediaControler::setVolume(int v)
@@ -405,6 +415,43 @@ void SparkMediaControler::setVolume(int v)
     SDL_LockAudioDevice(audio_device_id);
     this->volume = (v < 0 ? 0 : (v > 100 ? 100 : v));
     SDL_UnlockAudioDevice(audio_device_id);
+}
+
+void SparkMediaControler::DoPlayMod()
+{
+    switch (play_mode)
+    {
+        case PlayMode_List:
+            nextMedia(true);
+            break;
+        case PlayMode_Random:
+            nextMedia(true);
+            break;
+        case PlayMode_One:
+            break;
+        case PlayMode_OneLoop:
+            play();
+            break;
+        default:
+            break;
+    }
+}
+
+void SparkMediaControler::setPlayMode(PlayMode mode)
+{
+    play_mode = mode;
+    if (mode == PlayMode_Random)
+    {
+        std::random_device rd;
+        std::mt19937 g(rd());
+        std::shuffle(play_list.begin(), play_list.end(), g);
+        play_point = play_list.begin();
+    }
+}
+
+PlayMode SparkMediaControler::getPlayMode()
+{
+    return play_mode;
 }
 
 SparkMediaControler::SparkMediaControler()
@@ -418,11 +465,13 @@ SparkMediaControler::SparkMediaControler()
     play_point = play_list.end();
     volume = 100;
     SDL_Init(SDL_INIT_AUDIO);
+    setAudioDevice();
 }
 
 SparkMediaControler::~SparkMediaControler()
 {
     closeMedia();
+    SDL_CloseAudioDevice(audio_device_id);
 }
 
 SparkMediaControler *SparkMediaControler::getInstance(){

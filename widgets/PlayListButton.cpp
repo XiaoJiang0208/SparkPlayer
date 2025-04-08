@@ -20,7 +20,8 @@ void PlayListButton::initUI()
     this->setCheckable(false);
     this->setStyleSheet(".PlayListButton { background-color: rgba(196, 189, 189, 0); border-radius: 10px; }\
                          .PlayListButton:hover { background-color: rgba(196, 189, 189, 0.2); border-radius: 10px; }");
-    this->setIcon(this->style()->standardIcon(DStyle::SP_DirOpenIcon));
+    this->setIcon(this->style()->standardIcon(DStyle::SP_TitleBarMenuButton));
+    this->setIconSize(this->size()+QSize(20,20));
 
     background = new QPushButton(window());
     background->setStyleSheet(".QPushButton { background-color: rgba(0,0,0,0) }");
