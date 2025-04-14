@@ -52,20 +52,30 @@ double SparkMediaControler::getTime()
 }
 int SparkMediaControler::setAudioDevice()
 {
-    audio_spec.freq=48000;
-    audio_spec.format = AUDIO_S16SYS;
-    audio_spec.channels = 2;
-    audio_spec.silence = 0;
-    audio_spec.callback = audioCallback;
-    audio_spec.userdata = this;
-
-    m_codec.setOutAudio(48000,2,16);
+    SDL_AudioSpec wantedSpec;
+    SDL_zero(wantedSpec);
+    wantedSpec.freq = 192000;        // 尝试高采样率
+    wantedSpec.format = AUDIO_S32SYS; // 尝试高精度格式
+    wantedSpec.channels = 2;         // 立体声
+    wantedSpec.silence = 0;
+    wantedSpec.callback = audioCallback;
+    wantedSpec.userdata = this;
     
-    if ((audio_device_id = SDL_OpenAudioDevice(nullptr,0,&audio_spec, nullptr,SDL_AUDIO_ALLOW_ANY_CHANGE)) < 2){
+    if ((audio_device_id = SDL_OpenAudioDevice(nullptr,0,&wantedSpec, &audio_spec,SDL_AUDIO_ALLOW_ANY_CHANGE)) < 2){
         qWarning() << "open audio device failed ";
         closeMedia();
         return -1;
     }
+
+    static const std::map<SDL_AudioFormat, int> formatMap = {
+        {AUDIO_U8, 8},
+        {AUDIO_S16SYS, 16},
+        {AUDIO_S32SYS, 24},
+        {AUDIO_F32SYS, 32}
+    };
+    m_codec.setOutAudio(audio_spec.freq,audio_spec.channels,formatMap.find(audio_spec.format)->second);
+    qInfo() << "freq: "<<audio_spec.freq << " format: " << formatMap.find(audio_spec.format)->second;
+    
     return 0;
 }
 

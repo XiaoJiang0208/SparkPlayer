@@ -94,6 +94,13 @@ void TimeLine::slotValueChanged(int value)
 }
 
 void TimeLine::slotThemeTypeChanged(){
+    if (DGuiApplicationHelper::instance()->themeType() == DGuiApplicationHelper::LightType) {
+        right_time->setStyleSheet(".QLabel { color: black; }");
+        left_time->setStyleSheet(".QLabel { color: black; }");
+    } else {
+        right_time->setStyleSheet(".QLabel { color: white; }");
+        left_time->setStyleSheet(".QLabel { color: white; }");
+    }
     main_slider->setStyleSheet("\
     .QSlider::groove:horizontal {\
         border: 0px solid #bbb;\
