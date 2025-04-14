@@ -83,6 +83,9 @@
         "iomanip": "cpp",
         "qgraphicsdropshadoweffect": "cpp",
         "qstring": "cpp",
-        "fstream": "cpp"
+        "fstream": "cpp",
+        "qx11info": "cpp",
+        "qabstractnativeeventfilter": "cpp",
+        "qkeysequence": "cpp"
     }
 }

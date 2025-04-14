@@ -9,12 +9,12 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Core LinguistTools Multimedia)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Core LinguistTools Multimedia)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Core LinguistTools Multimedia X11Extras)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Core LinguistTools Multimedia X11Extras)
 find_package(Dtk REQUIRED COMPONENTS Widget Core)
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(ffmpeg REQUIRED IMPORTED_TARGET libavcodec libavformat libavfilter libavutil libswscale sdl2 SDL2_mixer)
+pkg_check_modules(ffmpeg REQUIRED IMPORTED_TARGET libavcodec libavformat libavfilter libavutil libswscale sdl2 SDL2_mixer x11)
 
 find_package(CURL REQUIRED)
 
@@ -32,6 +32,8 @@ set(PROJECT_SOURCES
         SparkSettings.cpp
         SparkAIAPI.h
         SparkAIAPI.cpp
+        SparkGlobalHotkey.h
+        SparkGlobalHotkey.cpp
         ${TS_FILES}
 )
 
@@ -72,6 +74,7 @@ else()
             utils/ImageTools.h utils/ImageTools.cpp
             utils/Path.h utils/Path.cpp
             utils/Codec.h utils/Codec.cpp
+            utils/qhotkey.h utils/qhotkey.cpp utils/qhotkey_p.h utils/qhotkey_x11.cpp
             
         )
     endif()
@@ -81,6 +84,7 @@ endif()
 
 target_link_libraries(SparkPlayer PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Multimedia
+    Qt${QT_VERSION_MAJOR}::X11Extras
     Dtk::Widget
     Dtk::Core
     PkgConfig::ffmpeg
@@ -107,8 +111,9 @@ install(TARGETS SparkPlayer
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
-
-# 新增：构建后复制images文件夹到build目录（可执行文件所在目录）
+# 警用debug
+add_definitions(-DQT_NO_DEBUG_OUTPUT)
+# 新增：构建后复制images文件夹到build目录(可执行文件所在目录)
 add_custom_command(TARGET SparkPlayer POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/images $<TARGET_FILE_DIR:SparkPlayer>/images

@@ -9,6 +9,8 @@
 #include <QLocale>
 #include <QTranslator>
 #include <DAboutDialog>
+#include <QKeySequence>
+#include "utils/qhotkey.h"
 
 DWIDGET_USE_NAMESPACE
 int main(int argc, char *argv[])
@@ -44,5 +46,11 @@ int main(int argc, char *argv[])
     Sparkplayer w;
     w.show();
     Dtk::Widget::moveToCenter(&w);
+    QHotkey hotkey_play(QKeySequence("Ctrl+Alt+P"), true, a);
+	QObject::connect(&hotkey_play, &QHotkey::activated, &w, &Sparkplayer::slotPlay);
+    QHotkey hotkey_previous(QKeySequence("Ctrl+Alt+,"), true, a);
+	QObject::connect(&hotkey_previous, &QHotkey::activated, &w, &Sparkplayer::slotPrevious);
+    QHotkey hotkey_next(QKeySequence("Ctrl+Alt+."), true, a);
+	QObject::connect(&hotkey_next, &QHotkey::activated, &w, &Sparkplayer::slotNext);
     return a->exec();
 }

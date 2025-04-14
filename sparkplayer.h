@@ -17,6 +17,7 @@
 #include "SparkMediaControler.h"
 #include "SparkSettings.h"
 #include "SparkAIAPI.h"
+#include "SparkGlobalHotkey.h"
 
 DWIDGET_USE_NAMESPACE
 
@@ -71,7 +72,6 @@ private:
     PlayListButton *play_list_button;
     DPushButton *ai_button;
     DPushButton *playmode_button;
-    
 
     void mouseReleaseEvent(QMouseEvent *event);
 
@@ -80,5 +80,8 @@ public slots:
     void slotFullscreen(bool t);
     void slotChangePlayMode();
     void slotAI();
+    void slotPlay();
+    void slotNext();
+    void slotPrevious();
 };
 #endif // SPARKPLAYER_H

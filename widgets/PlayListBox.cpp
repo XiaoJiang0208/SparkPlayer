@@ -17,7 +17,7 @@ PlayListBox::~PlayListBox()
 void PlayListBox::initUI()
 {
     this->setLayout(new QVBoxLayout(this)); //设置布局
-    this->layout()->setMargin(0);
+    this->layout()->setContentsMargins(0,10,0,10);
     this->layout()->setSpacing(0);
 
     // 初始化媒体列表
@@ -51,10 +51,15 @@ void PlayListBox::slotReloadPlayList()
 
     }
     for (auto d : *(SparkMediaControler::getInstance()->getPlayList())) {
-        media_buttons.push_back(new MediaBox(d,media_list_context,true));
-        media_buttons.back()->setFixedHeight(40);
-        media_list_context_layout->addWidget(media_buttons.back());
-        media_buttons.back()->autoSetIcon();
+        MediaBox *b = new MediaBox(d,media_list_context,true);
+        b->setFixedHeight(40);
+        media_list_context_layout->addWidget(b);
+        b->autoSetIcon();
+        media_buttons.push_back(b);
+        // media_buttons.push_back(new MediaBox(d,media_list_context,true));
+        // media_buttons.back()->setFixedHeight(40);
+        // media_list_context_layout->addWidget(media_buttons.back());
+        // media_buttons.back()->autoSetIcon();
     }
 }
 

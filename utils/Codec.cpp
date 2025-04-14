@@ -61,6 +61,7 @@ int32_t Codec::openFile(const char *path){
     // 查找视频流
     for (uint32_t i = 0; i < m_pAvFormatCtx->nb_streams; i++)
     {
+        if (i>16) break; 
         AVStream *pAvStream = m_pAvFormatCtx->streams[i];
         if (pAvStream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
         {
@@ -290,7 +291,7 @@ int32_t Codec::packetDecoder(std::queue<AVPacket *> &packetQueue, int stream_ind
         }
 
         // 将pts转换为秒数，假设m_vidTimeBase为视频time_base
-        double videoPts = pOutFrame->pts * av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base)/playback_speed;
+        double videoPts = pOutFrame->pts * av_q2d(m_pAvFormatCtx->streams[m_vidStreamIndex]->time_base);
         // 计算与音频主时钟的差值
         double delay = (videoPts - m_sync.getClock());
         qDebug()<<"videoPts:"<<videoPts<<"delay:"<<delay;
@@ -619,10 +620,11 @@ int32_t Codec::initAudioFliter()
     // 配置输出格式（与 SwrContext 输入一致）
     int out_sample_rates[] = {m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->sample_rate, -1};
     //av_channel_layout_default(&out_ch_layout, m_outAudSetting.channel_count);
-    uint64_t out_channel_layouts = m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->ch_layout.u.mask;
+    //uint64_t out_channel_layouts = m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->ch_layout.u.mask;
+    int64_t out_channel_layouts[] = {m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->ch_layout.u.mask,-1};
     int out_formats[] = {m_pAvFormatCtx->streams[m_audStreamIndex]->codecpar->format, -1};
 
-    av_opt_set_int_list(buffersink_ctx, "channel_layouts", &out_channel_layouts, -1, AV_OPT_SEARCH_CHILDREN);
+    av_opt_set_int_list(buffersink_ctx, "channel_layouts", out_channel_layouts, -1, AV_OPT_SEARCH_CHILDREN);
     av_opt_set_int_list(buffersink_ctx, "sample_rates", out_sample_rates, -1, AV_OPT_SEARCH_CHILDREN);
     av_opt_set_int_list(buffersink_ctx, "sample_fmts", out_formats, -1, AV_OPT_SEARCH_CHILDREN);
 

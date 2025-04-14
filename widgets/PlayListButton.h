@@ -30,6 +30,9 @@ public:
 
     void resizeEvent(QResizeEvent *event);
     void mouseReleaseEvent(QMouseEvent *e);
+
+public Q_SLOTS:
+    void slotThemeTypeChanged();
 };
 
 

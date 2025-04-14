@@ -43,6 +43,7 @@ private:
     PageData *data; //页面数据
     
     QList<fs::path> media_data_list;
+    QList<QWidget *> media_box_list; //媒体列表
 
     DWidget *media_list_bar; //主要标题栏
     QHBoxLayout *media_list_bar_layout; //主要标题栏布局器
@@ -60,6 +61,11 @@ private:
 
     void initUI(); //初始化页面
     void reloadMedia();
+
+    void enableDragDrop(); //启用拖拽
+
+    void dropEvent(QDropEvent *event);
+    void dragEnterEvent(QDragEnterEvent *event);
 
 public slots:
     void slotThemeTypeChanged();

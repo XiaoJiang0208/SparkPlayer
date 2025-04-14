@@ -88,7 +88,11 @@ void VolumeSettingBox::slotSetVolume(int value) {
 }
 
 void VolumeSettingBox::slotThemeTypeChanged(){
-    this->setStyleSheet(".VolumeSettingBox { background-color: #ffffff; border-radius: 10px; }");
+    if (DGuiApplicationHelper::instance()->themeType() == DGuiApplicationHelper::LightType) {
+        this->setStyleSheet(".VolumeSettingBox { background-color: #ffffff; border-radius: 10px; }");
+    } else {
+        this->setStyleSheet(".VolumeSettingBox { background-color: #13131a; border-radius: 10px; }");
+    }
     QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(this);
     shadow->setBlurRadius(30);    // 模糊半径
     shadow->setOffset(0, 0 );        // 偏移量

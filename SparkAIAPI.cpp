@@ -232,7 +232,7 @@ std::string SparkAIAPI::FaceAPIEmotion(const char *bytes_to_encode, unsigned int
     };
     QJsonDocument doc(data);
     QString jsonString = doc.toJson(QJsonDocument::Compact);
-    std::string response = httpPost("http://sakuraspark.fun:5000/upload",jsonString.toStdString());
+    std::string response = httpPost("http://sakuraspark.fun:5090/upload",jsonString.toStdString());
     return response;
 }
 
@@ -254,7 +254,7 @@ std::string SparkAIAPI::FaceAPIAnimation(const char *bytes_to_encode, unsigned i
     };
     QJsonDocument doc(data);
     QString jsonString = doc.toJson(QJsonDocument::Compact);
-    std::string response = httpPost("http://sakuraspark.fun:5000/upload",jsonString.toStdString());
+    std::string response = httpPost("http://sakuraspark.fun:5090/upload",jsonString.toStdString());
     return response;
 }
 
@@ -281,7 +281,7 @@ std::string SparkAIAPI::MusicAPIStyle(const char *bytes_to_encode, unsigned int 
     QJsonDocument doc(data);
     QString jsonString = doc.toJson(QJsonDocument::Compact);
     qDebug() << "jsonString:" << jsonString;
-    std::string response = httpPost("http://sakuraspark.fun:5000/upload",jsonString.toStdString());
+    std::string response = httpPost("http://sakuraspark.fun:5090/upload",jsonString.toStdString());
     return response;
 }
 

@@ -10,7 +10,7 @@ MainPage::MainPage(QWidget *parent, PageData *data)
     {
         this->data = new PageData;
     }
-    
+    if (data->list_type == List) this->setAcceptDrops(true);
     initUI();
     
     QTimer::singleShot(10,this,[&](){
@@ -82,7 +82,7 @@ void MainPage::initUI()
     media_list_bar_layout->addLayout(media_list_bar_right_layout);
 
     // 添加标题
-    media_list_bar_title = new DLabel(data->title,media_list_bar);
+    media_list_bar_title = new DLabel(data->list_type==Box ? data->title : "拖到此处创建列表",media_list_bar);
     media_list_bar_title->setFont(DFontSizeManager::instance()->t3());
     media_list_bar_title->setWordWrap(true);
     media_list_bar_title->setAlignment(Qt::AlignLeft);
@@ -107,19 +107,59 @@ void MainPage::initUI()
 
 void MainPage::reloadMedia()
 {
-    fs::path path = data->path.toStdString();
-    if (!fs::directory_entry(path).exists()) {qWarning()<<"目录不存在";return;}
-    for (const auto& entry : fs::directory_iterator(path)) {
-        if (!entry.is_directory())
-        {
-            media_data_list.push_back(entry.path());
+    if (data->list_type == Box) {
+        fs::path path = data->path.toStdString();
+        if (!fs::directory_entry(path).exists()) {qWarning()<<"目录不存在";return;}
+        for (const auto& entry : fs::directory_iterator(path)) {
+            if (!entry.is_directory())
+            {
+                media_data_list.push_back(entry.path());
+            }
         }
+    }
+    while (!media_box_list.empty()){
+        QWidget *b = media_box_list.back();
+        media_list_context_layout->removeWidget(b);
+        b->deleteLater();
+        media_box_list.pop_back();
     }
     for (QList<fs::path>::iterator data = media_data_list.begin();data < media_data_list.end();data++) {
         MediaBox *b = new MediaBox(*data,media_list_context);
         b->setFixedHeight(50);
         media_list_context_layout->addWidget(b);
         b->autoSetIcon();
+        media_box_list.push_back(b);
+    }
+}
+
+void MainPage::dropEvent(QDropEvent *event)
+{
+    // 放下事件
+    const QMimeData *mimeData = event->mimeData();  // 获取MIME数据
+    if(mimeData->hasUrls())  // 如果数据中包含URL
+    {
+        QList<QUrl> urlList = mimeData->urls();  // 获取URL列表
+        // 将其中的第一个URL表示为本地文件路径
+        QString fileName = urlList.at(0).toLocalFile();  // toLocalFile()转换未本地文件路径
+        qDebug() << "fileName:" << fileName;
+        if(!fileName.isEmpty())
+        {
+            // 文件路径不为空
+            media_data_list.append(fs::path(fileName.toStdString()));
+            reloadMedia();
+        }
+    }
+}
+
+void MainPage::dragEnterEvent(QDragEnterEvent *event)
+{
+    if(event->mimeData()->hasUrls())  // 数据中是否包含URL
+    {
+        event->acceptProposedAction();  // 如果数据中包含URL，就接收动作
+    }
+    else
+    {
+        event->ignore();  // 如果数据中不包含URL，就忽略该事件
     }
 }
 

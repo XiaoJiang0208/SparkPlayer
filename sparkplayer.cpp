@@ -24,7 +24,7 @@ Sparkplayer::Sparkplayer()
     slotThemeTypeChanged();
 
 
-    addMediaPage(PageData{"主页","","","",Box},-1);
+    addMediaPage(PageData{"首页","","","",List},-1);
     addMediaPage(PageData{"音乐","Content2","/home/"+QString(std::getenv("USER"))+"/Music","",Box},-1);
     addMediaPage(PageData{"视频","Content3","/home/"+QString(std::getenv("USER"))+"/Videos","",Box},-1);
     for (auto i : SparkSettings::getInstance()->getMediaLibraries())
@@ -53,7 +53,7 @@ void Sparkplayer::setupUI()
     title_bar = new TitleBar(this);
     //title_bar->setTitle("ttt");
     setTitlebarShadowEnabled(false); // 取消标题栏阴影
-    setMinimumSize(480,270); // 长宽比使用16:9适应大部分视频比例
+    setMinimumSize(600,338); // 长宽比使用16:9适应大部分视频比例
     resize(960,540);
     // 得手动整一个centralWidget有点无语
     DWidget *centralwidget = new DWidget(this); // 中央容器
@@ -190,9 +190,6 @@ void Sparkplayer::setupUI()
     fullscreen_button = new DPushButton("小窗",controlers); // 初始化全屏按钮
     fullscreen_button->setFixedSize(90,50);
     fullscreen_button->move(10,80-50-5);
-    fullscreen_button->setStyleSheet(".QPushButton{background-color:rgba(165, 165, 165, 0.1); border-radius: 10px;}\
-                                .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}\
-                                .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}");
     
     title_bar->raise(); // 置顶 titlebar
     controlers->raise(); // 置顶 controlers
@@ -203,9 +200,6 @@ void Sparkplayer::setupUI()
     ai_button = new DPushButton("AI",controlers); // 配置AI按钮
     ai_button->setFixedSize(30,30);
     ai_button->move(width()-30-105,35);
-    ai_button->setStyleSheet(".QPushButton{background-color:rgba(196, 189, 189, 0); border-radius: 10px;}\
-                                .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}\
-                                .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}");
     // test = new DPushButton(controlers);
     // connect(test,&DPushButton::clicked,this,[&](){
     //     SparkMediaControler::getInstance()->setPlaybackSpeed(1.5);
@@ -214,9 +208,6 @@ void Sparkplayer::setupUI()
     playmode_button->setText("顺序播放");
     playmode_button->setFixedSize(75,30);
     playmode_button->move(width()-30-185,35);
-    playmode_button->setStyleSheet(".QPushButton{background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}\
-                                    .QPushButton:hover{background-color:rgba(196, 189, 189, 0.1); border-radius: 10px;}\
-                                    .QPushButton:pressed{background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}");
     video_box = new VideoBox(this);
     video_box->raise();
 }
@@ -249,23 +240,26 @@ void Sparkplayer::reloadMediaPage()
             b->setFixedWidth(180);
             b->setCheckable(true);
             b->setIcon(Path::applicationPath("images/icon.png").toString());
-            QTimer::singleShot(100,this,[b](){
+            if (pdata->list_type == Box)
+            {
+                QTimer::singleShot(100,this,[b](){
                 QDir dir(b->getData()->path);
                 QStringList fileList = dir.entryList(QDir::Files);
-                if (!fileList.isEmpty()) {
-                    QString filePath = dir.absoluteFilePath(fileList.first());
-                    int w = Codec::getTitleImgWidth(fs::path(filePath.toStdString()));
-                    int h = Codec::getTitleImgHeight(fs::path(filePath.toStdString()));
-                    QSize size(w,h);
-                    QImage img(size,QImage::Format_RGB32);
-                    uint8_t* imgdata[1] = { reinterpret_cast<uint8_t*>(img.bits()) };
-                    int linesize[1] = { static_cast<int>(img.bytesPerLine()) };
-                    int res = Codec::getTitleImg(fs::path(filePath.toStdString()),size.width(),size.height(),imgdata,linesize);
-                    if (res >= 0) {
-                        b->setIcon(ImageTools::toPixmap(img,{b->height()-10,b->height()-10},6));
+                    if (!fileList.isEmpty()) {
+                        QString filePath = dir.absoluteFilePath(fileList.first());
+                        int w = Codec::getTitleImgWidth(fs::path(filePath.toStdString()));
+                        int h = Codec::getTitleImgHeight(fs::path(filePath.toStdString()));
+                        QSize size(w,h);
+                        QImage img(size,QImage::Format_RGB32);
+                        uint8_t* imgdata[1] = { reinterpret_cast<uint8_t*>(img.bits()) };
+                        int linesize[1] = { static_cast<int>(img.bytesPerLine()) };
+                        int res = Codec::getTitleImg(fs::path(filePath.toStdString()),size.width(),size.height(),imgdata,linesize);
+                        if (res >= 0) {
+                            b->setIcon(ImageTools::toPixmap(img,{b->height()-10,b->height()-10},6));
+                        }
                     }
-                }
-            });
+                });
+            }
             b->setData(pdata);
             b->setStyleSheet(".QPushButton{background-color:rgba(196, 189, 189, 0); border-radius: 10px;}\
                                 .QPushButton:hover{background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}\
@@ -273,6 +267,10 @@ void Sparkplayer::reloadMediaPage()
                                 .QPushButton:checked{background-color:rgb(100, 180, 255); border-radius: 10px;}");
             media_list_buttons->addButton(b);
             media_list_context_layout->insertWidget(index,b);
+            if (index == 0)
+            {
+                b->click();
+            }
         }
         MediaListButton *pButton = (MediaListButton *)(media_list_buttons->buttons()[index]);
         PageData *d=pButton->getData();
@@ -467,6 +465,21 @@ void Sparkplayer::slotAI()
     contextMenu.exec(pos);
 }
 
+void Sparkplayer::slotPlay()
+{
+    play_button->click();
+}
+
+void Sparkplayer::slotNext()
+{
+    next_play->click();
+}
+
+void Sparkplayer::slotPrevious()
+{
+    previous_play->click();
+}
+
 void Sparkplayer::slotThemeTypeChanged(){
 
     for(auto item : media_list_buttons->buttons())
@@ -484,7 +497,18 @@ void Sparkplayer::slotThemeTypeChanged(){
         main_box->setStyleSheet(".QWidget{background-color: #f7f9fc;}");
         bottom->setStyleSheet(".QWidget{background-color: #fafafa;}");
 
+        ai_button->setStyleSheet(".QPushButton{ color:black; background-color:rgba(196, 189, 189, 0); border-radius: 10px;}\
+                                    .QPushButton:hover{ color:black; background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}\
+                                    .QPushButton:pressed{ color:black; background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}");
 
+        playmode_button->setStyleSheet(".QPushButton{ color:black; background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}\
+                                        .QPushButton:hover{ color:black; background-color:rgba(196, 189, 189, 0.1); border-radius: 10px;}\
+                                        .QPushButton:pressed{ color:black; background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}");
+
+
+        fullscreen_button->setStyleSheet(".QPushButton{ color:black; background-color:rgba(165, 165, 165, 0.1); border-radius: 10px;}\
+                                    .QPushButton:hover{ color:black; background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}\
+                                    .QPushButton:pressed{ color:black; background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}");
     } else {
         title->setStyleSheet(".QLabel{background-color: #1a1a21;}");
         media_list_context->setStyleSheet(".QWidget{background-color: #1a1a21;}");
@@ -492,6 +516,16 @@ void Sparkplayer::slotThemeTypeChanged(){
         main_box->setStyleSheet(".QWidget{background-color: #13131a;}");
         bottom->setStyleSheet(".QWidget{background-color: #2d2d38;}");
 
+        ai_button->setStyleSheet(".QPushButton{ color:white; background-color:rgba(196, 189, 189, 0); border-radius: 10px;}\
+                                    .QPushButton:hover{ color:white; background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}\
+                                    .QPushButton:pressed{ color:white; background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}");
+            
+        playmode_button->setStyleSheet(".QPushButton{ color:white; background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}\
+                                        .QPushButton:hover{ color:white; background-color:rgba(196, 189, 189, 0.1); border-radius: 10px;}\
+                                        .QPushButton:pressed{ color:white; background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}");
+        fullscreen_button->setStyleSheet(".QPushButton{ color:white; background-color:rgba(165, 165, 165, 0.1); border-radius: 10px;}\
+                                    .QPushButton:hover{ color:white; background-color:rgba(196, 189, 189, 0.2); border-radius: 10px;}\
+                                    .QPushButton:pressed{ color:white; background-color:rgba(196, 189, 189, 0.3); border-radius: 10px;}");
     }
     
 }

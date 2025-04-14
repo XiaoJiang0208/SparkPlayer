@@ -52,6 +52,8 @@ public:
     void enterEvent(QEvent *event);
     void leaveEvent(QEvent *event);
 
+public Q_SLOTS:
+    void slotThemeTypeChanged();
 };
 
 

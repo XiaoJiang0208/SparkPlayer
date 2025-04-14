@@ -4,7 +4,9 @@ SpeedBox::SpeedBox(QWidget *parent):QPushButton(parent)
 {
     
     initUI();
-    
+    connect(DGuiApplicationHelper::instance(),&DGuiApplicationHelper::themeTypeChanged,speed_setting_box,&SpeedSettingBox::slotThemeTypeChanged);
+    connect(DGuiApplicationHelper::instance(),&DGuiApplicationHelper::themeTypeChanged,this,&SpeedBox::slotThemeTypeChanged);
+    slotThemeTypeChanged();
 }
 
 SpeedBox::~SpeedBox()
@@ -14,9 +16,6 @@ SpeedBox::~SpeedBox()
 void SpeedBox::initUI()
 {
     setFixedSize(30,30);
-    this->setStyleSheet(".SpeedBox { background-color: rgba(196, 189, 189, 0); border-radius: 10px; }"
-                        ".SpeedBox:hover { background-color: rgba(196, 189, 189, 0.2); border-radius: 10px; }"
-                        ".SpeedBox:pressed { background-color: rgba(196, 189, 189, 0.3); border-radius: 10px; }");
     icon = new QLabel(this);
     icon->setFixedSize(this->size());
     // dtk倍速图标
@@ -59,6 +58,29 @@ void SpeedBox::leaveEvent(QEvent *event)
         }
         
     });
+}
+
+void SpeedBox::slotThemeTypeChanged() {
+
+    if (DGuiApplicationHelper::instance()->themeType() == DGuiApplicationHelper::LightType) {  
+        this->setStyleSheet(".SpeedBox { color: black; background-color: rgba(196, 189, 189, 0); border-radius: 10px; }"
+                            ".SpeedBox:hover { color: black; background-color: rgba(196, 189, 189, 0.2); border-radius: 10px; }"
+                            ".SpeedBox:pressed { color: black; background-color: rgba(196, 189, 189, 0.3); border-radius: 10px; }");
+
+        icon->setStyleSheet(".QLabel { color: black; background-color: rgba(196, 189, 189, 0); border-radius: 10px; }"
+                            ".QLabel:hover { color: black; background-color: rgba(196, 189, 189, 0.2); border-radius: 10px; }"
+                            ".QLabel:pressed { color: black; background-color: rgba(196, 189, 189, 0.3); border-radius: 10px; }");
+        
+    } else {
+        
+        this->setStyleSheet(".SpeedBox { color: white; background-color: rgba(196, 189, 189, 0); border-radius: 10px; }"
+                            ".SpeedBox:hover { color: white; background-color: rgba(196, 189, 189, 0.2); border-radius: 10px; }"
+                            ".SpeedBox:pressed { color: white; background-color: rgba(196, 189, 189, 0.3); border-radius: 10px; }");
+
+        icon->setStyleSheet(".QLabel { color: white; background-color: rgba(196, 189, 189, 0); border-radius: 10px; }"
+                            ".QLabel:hover { color: white; background-color: rgba(196, 189, 189, 0.2); border-radius: 10px; }"
+                            ".QLabel:pressed { color: white; background-color: rgba(196, 189, 189, 0.3); border-radius: 10px; }");
+    }
 }
 
 SpeedSettingBox::SpeedSettingBox(QWidget *parent) : QLabel(parent)
@@ -129,7 +151,11 @@ void SpeedSettingBox::leaveEvent(QEvent *event)
 }
 
 void SpeedSettingBox::slotThemeTypeChanged(){
-    this->setStyleSheet(".SpeedSettingBox { background-color: #ffffff; border-radius: 10px; }");
+    if (DGuiApplicationHelper::instance()->themeType() == DGuiApplicationHelper::LightType) {
+        this->setStyleSheet(".SpeedSettingBox { color: black; background-color: #ffffff; border-radius: 10px; }");
+    } else {
+        this->setStyleSheet(".SpeedSettingBox { color: white; background-color: #13131a; border-radius: 10px; }");
+    }
     QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(this);
     shadow->setBlurRadius(30);    // 模糊半径
     shadow->setOffset(0, 0 );        // 偏移量

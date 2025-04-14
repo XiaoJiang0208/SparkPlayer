@@ -5,7 +5,8 @@ PlayListButton::PlayListButton(QWidget *parent) : QPushButton(parent)
     is_show=false;
     initUI();
     connect(background, &QPushButton::clicked, this, &PlayListButton::hidePlayList);
-
+    connect(DGuiApplicationHelper::instance(),&DGuiApplicationHelper::themeTypeChanged,this,&PlayListButton::slotThemeTypeChanged);
+    slotThemeTypeChanged();
 }
 
 PlayListButton::~PlayListButton()
@@ -18,8 +19,6 @@ void PlayListButton::initUI()
 
     move(parentWidget()->width()-width()-10,35);
     this->setCheckable(false);
-    this->setStyleSheet(".PlayListButton { background-color: rgba(196, 189, 189, 0); border-radius: 10px; }\
-                         .PlayListButton:hover { background-color: rgba(196, 189, 189, 0.2); border-radius: 10px; }");
     this->setIcon(this->style()->standardIcon(DStyle::SP_TitleBarMenuButton));
     this->setIconSize(this->size()+QSize(20,20));
 
@@ -80,4 +79,10 @@ void PlayListButton::mouseReleaseEvent(QMouseEvent *e)
     if(e->button() == Qt::LeftButton) {
         showPlayList();
     }
+}
+
+void PlayListButton::slotThemeTypeChanged(){
+    
+    this->setStyleSheet(".PlayListButton { background-color: rgba(196, 189, 189, 0); border-radius: 10px; }\
+                         .PlayListButton:hover { background-color: rgba(196, 189, 189, 0.2); border-radius: 10px; }");
 }
