@@ -5,6 +5,8 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
+#include <libavutil/error.h>
+#include <libavutil/hwcontext.h>
 #include <libswscale/swscale.h>
 #include <libavutil/time.h>
 #include <libavutil/channel_layout.h>

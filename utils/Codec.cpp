@@ -202,12 +202,52 @@ int32_t Codec::changeVideoStream(int32_t i)
         qWarning() << "找不到适用于"<<pAvStream->codecpar->codec_id<<"的视频解码器";
         return -1;
     }
+
+    //查找硬件解码器
+    AVHWDeviceType hwDeviceType = AV_HWDEVICE_TYPE_VAAPI; // 可改为其他类型，如 AV_HWDEVICE_TYPE_CUDA
+    AVBufferRef* hwDeviceCtx = nullptr;
+    bool hwDecoderFound = false;
+    for (int j = 0; ; j++) {
+        const AVCodecHWConfig* config = avcodec_get_hw_config(pVidCodec, j);
+        if (!config) break; // 没有更多硬件配置
+
+        // 检查是否支持目标硬件类型（例如 VAAPI）
+        if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
+            config->device_type == hwDeviceType) {
+            // 尝试创建硬件设备上下文
+            int ret = av_hwdevice_ctx_create(&hwDeviceCtx, hwDeviceType, nullptr, nullptr, 0);
+            if (ret < 0) {
+                qWarning() << "创建硬件设备上下文失败:" << ret;
+                continue;
+            }
+
+            // 找到硬件解码器
+            pVidCodec = avcodec_find_decoder_by_name(config->device_type == AV_HWDEVICE_TYPE_VAAPI ? "h264_vaapi" : nullptr); // 根据 codec_id 动态选择
+            if (true/*!pVidCodec*/) { // !没测试默认禁用!
+                pVidCodec = avcodec_find_decoder(pAvStream->codecpar->codec_id); // 回退到软件解码器
+            } else {
+                hwDecoderFound = true;
+            }
+            break;
+        }
+    }
+
     // 分配视频解码器上下文
     AVCodecContext* pVidCodecCtx = avcodec_alloc_context3(pVidCodec);
     if (pVidCodecCtx == nullptr)
     {
         qWarning() << "分配视频解码器上下文失败";
         return -1;
+    }
+    // 设置硬件设备上下文（如果使用硬件解码）!没测试默认禁用!
+    if (false && hwDeviceCtx) {
+        pVidCodecCtx->hw_device_ctx = av_buffer_ref(hwDeviceCtx);
+        if (!pVidCodecCtx->hw_device_ctx) {
+            qWarning() << "设置硬件设备上下文失败";
+            avcodec_free_context(&pVidCodecCtx);
+            av_buffer_unref(&hwDeviceCtx);
+            return -1;
+        }
     }
     // 设置视频解码器上下文参数
     int res = avcodec_parameters_to_context(pVidCodecCtx, pAvStream->codecpar);
@@ -227,6 +267,8 @@ int32_t Codec::changeVideoStream(int32_t i)
     }
     m_vidStreamIndex = i;
     m_pVidCodecCtx = pVidCodecCtx;
+    if (hwDeviceCtx) av_buffer_unref(&hwDeviceCtx); // 清理临时引用
+    qInfo() << "使用解码器:" << pVidCodec->name << (hwDecoderFound ? "(硬件加速)" : "(软件解码)");
     return res;
 }
 
