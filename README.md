@@ -11,4 +11,4 @@
 
 ![image](https://github.com/user-attachments/assets/ccf44009-578e-42ba-904d-bce47699f17d)
 
-# 大学生服务外包A22 只能应视频播放器壳子拿去使把
+# 大学生服务外包A22 AI智能视频播放器壳子拿去使把
