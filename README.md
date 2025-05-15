@@ -7,4 +7,8 @@
 - AI动画角色识别与面部表情识别
 - 音频风格识别
 
-# 大学生服务外包A22 壳子拿去使把
+![image](https://github.com/user-attachments/assets/4819886d-aa4b-4750-b3c1-9a8b49f6cb99)
+
+![image](https://github.com/user-attachments/assets/ccf44009-578e-42ba-904d-bce47699f17d)
+
+# 大学生服务外包A22 只能应视频播放器壳子拿去使把
